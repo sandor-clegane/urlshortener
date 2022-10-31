@@ -8,15 +8,13 @@ import (
 )
 
 type APIServer struct {
-	cfg     *Config
 	logger  *logrus.Logger
 	router  *http.ServeMux
 	storage map[string]string
 }
 
-func New(config *Config) *APIServer {
+func New() *APIServer {
 	return &APIServer{
-		cfg:     config,
 		logger:  logrus.New(),
 		router:  http.NewServeMux(),
 		storage: make(map[string]string),
@@ -24,25 +22,9 @@ func New(config *Config) *APIServer {
 }
 
 func (s *APIServer) Start() error {
-	if err := s.configureLogger(); err != nil {
-		return err
-	}
-
 	s.configureRouter()
 
 	return http.ListenAndServe(":8080", s.router)
-	//return http.ListenAndServe(s.cfg.BindAddr, s.router)
-}
-
-func (s *APIServer) configureLogger() error {
-	level, err := logrus.ParseLevel(s.cfg.LogLevel)
-	if err != nil {
-		return err
-	}
-
-	s.logger.SetLevel(level)
-
-	return nil
 }
 
 func (s *APIServer) configureRouter() {
