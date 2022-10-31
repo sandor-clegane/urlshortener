@@ -1,7 +1,7 @@
 package main
 
 import (
-	"awesomeProject/urlshortener/internal/app"
+	"github.com/sandor-clegane/urlshortener/internal/app"
 	"flag"
 	"github.com/BurntSushi/toml"
 	"log"
