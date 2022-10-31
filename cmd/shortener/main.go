@@ -1,9 +1,9 @@
 package main
 
 import (
-	"github.com/sandor-clegane/urlshortener/internal/app"
 	"flag"
 	"github.com/BurntSushi/toml"
+	"github.com/sandor-clegane/urlshortener/internal/app"
 	"log"
 )
 
@@ -15,7 +15,7 @@ func init() {
 	flag.StringVar(
 		&configPath,
 		"config-path",
-		"../../configs/app.toml",
+		"config.toml",
 		"path to config file",
 	)
 }
@@ -31,8 +31,5 @@ func main() {
 
 	s := app.New(config)
 
-	if err := s.Start(); err != nil {
-		log.Fatal(err)
-	}
-
+	log.Fatal(s.Start())
 }

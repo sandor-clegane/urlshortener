@@ -36,8 +36,6 @@ func (s *APIServer) getHandler(w http.ResponseWriter, r *http.Request) {
 	//формируем ответ
 	w.Header().Add("Location", expandURL)
 	w.WriteHeader(http.StatusTemporaryRedirect)
-
-	return
 }
 
 //ндпоинт POST / принимает в теле запроса строку URL для сокращения
@@ -67,12 +65,9 @@ func (s *APIServer) postHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 	//пишем в тело ответа сокращенный url
 	w.Write([]byte(short))
-
-	return
 }
 
 func (s *APIServer) defaultHandler(w http.ResponseWriter, r *http.Request) {
 	// этот обработчик принимает все запросы, кроме отправленных методами GET и POST
 	http.Error(w, "This method is not allowed", http.StatusMethodNotAllowed)
-	return
 }
