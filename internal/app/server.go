@@ -30,7 +30,8 @@ func (s *APIServer) Start() error {
 
 	s.configureRouter()
 
-	return http.ListenAndServe(s.cfg.BindAddr, s.router)
+	return http.ListenAndServe(":8080", s.router)
+	//return http.ListenAndServe(s.cfg.BindAddr, s.router)
 }
 
 func (s *APIServer) configureLogger() error {
