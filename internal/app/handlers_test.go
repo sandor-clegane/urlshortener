@@ -14,10 +14,11 @@ import (
 
 func TestAPIServer_getHandler(t *testing.T) {
 	type want struct {
-		expandUrl  string
+		expandURL  string
 		statusCode int
 		expectErr  bool
 	}
+	//TODO refactor storage to interface
 	tests := []struct {
 		storage map[string]string
 		name    string
@@ -29,7 +30,7 @@ func TestAPIServer_getHandler(t *testing.T) {
 			name:    "simple test 1",
 			request: "/id1",
 			want: want{
-				expandUrl:  "http://ya.ru",
+				expandURL:  "http://ya.ru",
 				statusCode: http.StatusTemporaryRedirect,
 				expectErr:  false,
 			},
@@ -39,7 +40,7 @@ func TestAPIServer_getHandler(t *testing.T) {
 			name:    "simple test 2",
 			request: "/id2",
 			want: want{
-				expandUrl:  "",
+				expandURL:  "",
 				statusCode: http.StatusBadRequest,
 				expectErr:  true,
 			},
@@ -47,7 +48,7 @@ func TestAPIServer_getHandler(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var s *APIServer = New()
+			var s = New()
 			s.storage = tt.storage
 			s.configureRouter()
 
@@ -56,10 +57,12 @@ func TestAPIServer_getHandler(t *testing.T) {
 			s.router.ServeHTTP(w, request)
 			result := w.Result()
 
+			err := result.Body.Close()
+			assert.NoError(t, err)
 			assert.Equal(t, tt.want.statusCode, result.StatusCode)
 
 			if !tt.want.expectErr {
-				assert.Equal(t, tt.want.expandUrl, result.Header.Get("Location"))
+				assert.Equal(t, tt.want.expandURL, result.Header.Get("Location"))
 			}
 		})
 	}
@@ -86,7 +89,7 @@ func TestAPIServer_postHandler(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var s *APIServer = New()
+			var s = New()
 			s.configureRouter()
 
 			request := httptest.NewRequest(http.MethodPost, tt.request, nil)
@@ -96,11 +99,12 @@ func TestAPIServer_postHandler(t *testing.T) {
 
 			assert.Equal(t, tt.want.statusCode, result.StatusCode)
 
+			actualBody, err := ioutil.ReadAll(result.Body)
+			require.NoError(t, err)
+			err = result.Body.Close()
+			require.NoError(t, err)
+
 			if !tt.want.expectErr {
-				actualBody, err := ioutil.ReadAll(result.Body)
-				require.NoError(t, err)
-				err = result.Body.Close()
-				require.NoError(t, err)
 				strings.Contains(string(actualBody), "http://localhost:8080/")
 				actualBody = bytes.TrimPrefix(actualBody, []byte("http://localhost:8080/"))
 				respURL, err := url.Parse(string(actualBody))
@@ -137,7 +141,7 @@ func TestAPIServer_defaultHandler(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var s *APIServer = New()
+			var s = New()
 			s.configureRouter()
 
 			request := httptest.NewRequest(tt.method, tt.request, nil)
