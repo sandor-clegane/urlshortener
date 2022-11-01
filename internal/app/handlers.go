@@ -2,6 +2,8 @@ package app
 
 import (
 	"bytes"
+	"fmt"
+	"github.com/google/uuid"
 	"io"
 	"net/http"
 	url2 "net/url"
@@ -23,11 +25,8 @@ func (s *APIServer) myHandler() http.HandlerFunc {
 //Эндпоинт GET /{id} принимает в качестве URL-параметра идентификатор сокращённого URL и
 //возвращает ответ с кодом 307 и оригинальным URL в HTTP-заголовке Location.
 func (s *APIServer) getHandler(w http.ResponseWriter, r *http.Request) {
-	//извлекаем идентификатор сокращенного юрл
-	shortURL := string(bytes.TrimPrefix([]byte(r.URL.Path), []byte("/")))
-
 	//ищем в хранилище соответсвующий полный юрл
-	expandURL, ok := s.storage[shortURL]
+	expandURL, ok := s.storage[string(bytes.TrimPrefix([]byte(r.URL.Path), []byte("/")))]
 	if !ok {
 		http.Error(w, "Passed short url not found", http.StatusBadRequest)
 		return
@@ -58,8 +57,13 @@ func (s *APIServer) postHandler(w http.ResponseWriter, r *http.Request) {
 
 	//сокращаем юрл и добавляем его в хранилище
 	//TODO storage.insert(...)
-	short := shortenURL(url)
+	short := uuid.New().String()
 	s.storage[short] = url.String()
+
+	fmt.Println("Printing map")
+	for k, v := range s.storage {
+		fmt.Printf("key:%v   value:%v\n", k, v)
+	}
 
 	//устанавливаем статус ответа
 	w.WriteHeader(http.StatusCreated)

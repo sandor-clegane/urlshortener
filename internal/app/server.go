@@ -1,10 +1,8 @@
 package app
 
 import (
-	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"net/http"
-	url2 "net/url"
 )
 
 type APIServer struct {
@@ -29,8 +27,4 @@ func (s *APIServer) Start() error {
 
 func (s *APIServer) configureRouter() {
 	s.router.Handle("/", s.myHandler())
-}
-
-func shortenURL(url *url2.URL) string {
-	return uuid.New().String()
 }
