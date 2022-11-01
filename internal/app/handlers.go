@@ -2,12 +2,12 @@ package app
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"net/http"
 	url2 "net/url"
 )
 
+//TODO: rewrite this code to configure router
 func (s *APIServer) myHandler() http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		switch request.Method {
@@ -57,13 +57,8 @@ func (s *APIServer) postHandler(w http.ResponseWriter, r *http.Request) {
 	//сокращаем юрл и добавляем его в хранилище
 	//TODO storage.insert(...)
 	short := shortenURL(url)
-	fmt.Println(short.String())
+	//мапим только путь потому что префиксы у всех урлов одинаковые
 	s.storage[short.Path] = url.String()
-
-	fmt.Println("Printing map")
-	for k, v := range s.storage {
-		fmt.Printf("key:%v   value:%v\n", k, v)
-	}
 
 	//устанавливаем статус ответа
 	w.WriteHeader(http.StatusCreated)
@@ -71,7 +66,7 @@ func (s *APIServer) postHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(short.String()))
 }
 
-func (s *APIServer) defaultHandler(w http.ResponseWriter, r *http.Request) {
+func (s *APIServer) defaultHandler(w http.ResponseWriter, _ *http.Request) {
 	// этот обработчик принимает все запросы, кроме отправленных методами GET и POST
 	http.Error(w, "This method is not allowed", http.StatusMethodNotAllowed)
 }
