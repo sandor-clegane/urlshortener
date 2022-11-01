@@ -48,13 +48,13 @@ func TestAPIServer_getHandler(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var s = New()
-			s.storage = tt.storage
-			s.configureRouter()
+			h := NewHandler()
+			h.storage = tt.storage
 
 			request := httptest.NewRequest(http.MethodGet, tt.request, nil)
+
 			w := httptest.NewRecorder()
-			s.router.ServeHTTP(w, request)
+			h.ServeHTTP(w, request)
 			result := w.Result()
 
 			err := result.Body.Close()
@@ -89,12 +89,11 @@ func TestAPIServer_postHandler(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var s = New()
-			s.configureRouter()
+			h := NewHandler()
 
 			request := httptest.NewRequest(http.MethodPost, tt.request, nil)
 			w := httptest.NewRecorder()
-			s.router.ServeHTTP(w, request)
+			h.ServeHTTP(w, request)
 			result := w.Result()
 
 			assert.Equal(t, tt.want.statusCode, result.StatusCode)
@@ -109,7 +108,7 @@ func TestAPIServer_postHandler(t *testing.T) {
 				actualBody = bytes.TrimPrefix(actualBody, []byte("http://localhost:8080/"))
 				respURL, err := url.Parse(string(actualBody))
 				require.NoError(t, err)
-				assert.Contains(t, s.storage, respURL.Path)
+				assert.Contains(t, h.storage, respURL.Path)
 			}
 		})
 	}
@@ -117,9 +116,7 @@ func TestAPIServer_postHandler(t *testing.T) {
 
 func TestAPIServer_defaultHandler(t *testing.T) {
 	type want struct {
-		errorMsg    string
-		contentType string
-		statusCode  int
+		statusCode int
 	}
 	//this handler can handle all methods except GET and POST
 	tests := []struct {
@@ -133,31 +130,30 @@ func TestAPIServer_defaultHandler(t *testing.T) {
 			name:    "simple test 1",
 			request: "/",
 			want: want{
-				errorMsg:    "This method is not allowed\n",
-				contentType: "text/plain; charset=utf-8",
-				statusCode:  http.StatusMethodNotAllowed,
+				statusCode: http.StatusMethodNotAllowed,
+			},
+		},
+		{
+			method:  http.MethodConnect,
+			name:    "simple test 2",
+			request: "/",
+			want: want{
+				statusCode: http.StatusMethodNotAllowed,
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var s = New()
-			s.configureRouter()
+			h := NewHandler()
 
 			request := httptest.NewRequest(tt.method, tt.request, nil)
 			w := httptest.NewRecorder()
-			s.router.ServeHTTP(w, request)
+			h.ServeHTTP(w, request)
 			result := w.Result()
 
 			assert.Equal(t, tt.want.statusCode, result.StatusCode)
-			assert.Equal(t, tt.want.contentType, result.Header.Get("Content-Type"))
-
-			actualBody, err := ioutil.ReadAll(result.Body)
+			err := result.Body.Close()
 			require.NoError(t, err)
-			err = result.Body.Close()
-			require.NoError(t, err)
-
-			assert.Equal(t, tt.want.errorMsg, string(actualBody))
 		})
 	}
 }

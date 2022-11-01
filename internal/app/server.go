@@ -1,34 +1,27 @@
 package app
 
 import (
+	"github.com/go-chi/chi"
 	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
-	"net/http"
 	"net/url"
 )
 
-type APIServer struct {
-	logger  *logrus.Logger
-	router  *http.ServeMux
+type Handler struct {
+	*chi.Mux
 	storage map[string]string
 }
 
-func New() *APIServer {
-	return &APIServer{
-		logger:  logrus.New(),
-		router:  http.NewServeMux(),
+func NewHandler() *Handler {
+	//creating handler
+	h := &Handler{
+		Mux:     chi.NewRouter(),
 		storage: make(map[string]string),
 	}
-}
+	//configuration router
+	h.MethodFunc("GET", "/{id}", h.getHandler)
+	h.MethodFunc("POST", "/", h.postHandler)
 
-func (s *APIServer) Start() error {
-	s.configureRouter()
-
-	return http.ListenAndServe(":8080", s.router)
-}
-
-func (s *APIServer) configureRouter() {
-	s.router.Handle("/", s.myHandler())
+	return h
 }
 
 func shortenURL(u *url.URL) url.URL {
