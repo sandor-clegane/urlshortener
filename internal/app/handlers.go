@@ -3,7 +3,6 @@ package app
 import (
 	"bytes"
 	"fmt"
-	"github.com/google/uuid"
 	"io"
 	"net/http"
 	url2 "net/url"
@@ -57,8 +56,9 @@ func (s *APIServer) postHandler(w http.ResponseWriter, r *http.Request) {
 
 	//сокращаем юрл и добавляем его в хранилище
 	//TODO storage.insert(...)
-	short := uuid.New().String()
-	s.storage[short] = url.String()
+	short := shortenURL(url)
+	fmt.Println(short.String())
+	s.storage[short.Path] = url.String()
 
 	fmt.Println("Printing map")
 	for k, v := range s.storage {
@@ -68,7 +68,7 @@ func (s *APIServer) postHandler(w http.ResponseWriter, r *http.Request) {
 	//устанавливаем статус ответа
 	w.WriteHeader(http.StatusCreated)
 	//пишем в тело ответа сокращенный url
-	w.Write([]byte(short))
+	w.Write([]byte(short.String()))
 }
 
 func (s *APIServer) defaultHandler(w http.ResponseWriter, r *http.Request) {
