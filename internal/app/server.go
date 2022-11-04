@@ -1,14 +1,17 @@
 package app
 
 import (
+	"net/url"
+	"sync"
+
 	"github.com/go-chi/chi"
 	"github.com/google/uuid"
-	"net/url"
 )
 
 type Handler struct {
 	*chi.Mux
 	storage map[string]string
+	lock    sync.RWMutex
 }
 
 func NewHandler() *Handler {
@@ -24,7 +27,7 @@ func NewHandler() *Handler {
 	return h
 }
 
-func shortenURL(u *url.URL) url.URL {
+func shortenURL(_ *url.URL) url.URL {
 	return url.URL{
 		Scheme: "http",
 		Host:   "localhost:8080",

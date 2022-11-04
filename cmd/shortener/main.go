@@ -1,12 +1,16 @@
 package main
 
 import (
-	"github.com/sandor-clegane/urlshortener/internal/app"
 	"log"
 	"net/http"
+
+	"github.com/sandor-clegane/urlshortener/internal/app"
 )
 
 func main() {
 	h := app.NewHandler()
-	log.Fatal(http.ListenAndServe(":8080", h))
+	if err := http.ListenAndServe(":8080", h); err != http.ErrServerClosed {
+		log.Fatal(err)
+	}
+
 }

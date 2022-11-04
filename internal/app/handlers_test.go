@@ -2,21 +2,24 @@ package app
 
 import (
 	"bytes"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestAPIServer_getHandler(t *testing.T) {
 	type want struct {
-		expandURL  string
-		statusCode int
-		expectErr  bool
+		expandURL    string
+		statusCode   int
+		expectErr    bool
+		maybeErrBody string
 	}
 	//TODO refactor storage to interface
 	tests := []struct {
@@ -40,9 +43,9 @@ func TestAPIServer_getHandler(t *testing.T) {
 			name:    "simple test 2",
 			request: "/id2",
 			want: want{
-				expandURL:  "",
-				statusCode: http.StatusBadRequest,
-				expectErr:  true,
+				statusCode:   http.StatusBadRequest,
+				expectErr:    true,
+				maybeErrBody: "Passed short url not found\n",
 			},
 		},
 	}
@@ -57,12 +60,18 @@ func TestAPIServer_getHandler(t *testing.T) {
 			h.ServeHTTP(w, request)
 			result := w.Result()
 
-			err := result.Body.Close()
+			b, err := io.ReadAll(result.Body)
 			assert.NoError(t, err)
+
+			err = result.Body.Close()
+			assert.NoError(t, err)
+
 			assert.Equal(t, tt.want.statusCode, result.StatusCode)
 
 			if !tt.want.expectErr {
 				assert.Equal(t, tt.want.expandURL, result.Header.Get("Location"))
+			} else {
+				assert.Equal(t, tt.want.maybeErrBody, string(b))
 			}
 		})
 	}
@@ -104,7 +113,7 @@ func TestAPIServer_postHandler(t *testing.T) {
 			require.NoError(t, err)
 
 			if !tt.want.expectErr {
-				strings.Contains(string(actualBody), "http://localhost:8080/")
+				strings.HasPrefix(string(actualBody), "http://localhost:8080/")
 				actualBody = bytes.TrimPrefix(actualBody, []byte("http://localhost:8080/"))
 				respURL, err := url.Parse(string(actualBody))
 				require.NoError(t, err)

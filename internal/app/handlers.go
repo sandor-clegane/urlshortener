@@ -11,7 +11,10 @@ import (
 //возвращает ответ с кодом 307 и оригинальным URL в HTTP-заголовке Location.
 func (h *Handler) getHandler(w http.ResponseWriter, r *http.Request) {
 	//ищем в хранилище соответсвующий полный юрл
+	h.lock.RLock()
 	expandURL, ok := h.storage[string(bytes.TrimPrefix([]byte(r.URL.Path), []byte("/")))]
+	h.lock.RUnlock()
+
 	if !ok {
 		http.Error(w, "Passed short url not found", http.StatusBadRequest)
 		return
@@ -38,10 +41,13 @@ func (h *Handler) postHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//сокращаем юрл и добавляем его в хранилище
+	//мапим только путь потому что префиксы у всех урлов одинаковые
 	//TODO storage.insert(...)
 	short := shortenURL(url)
-	//мапим только путь потому что префиксы у всех урлов одинаковые
-	h.storage[short.Path] = url.String()
+
+	h.lock.Lock()
+	h.storage[short.Path] = string(b)
+	h.lock.Unlock()
 
 	//устанавливаем статус ответа
 	w.WriteHeader(http.StatusCreated)
