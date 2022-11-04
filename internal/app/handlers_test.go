@@ -113,7 +113,7 @@ func TestAPIServer_postHandler(t *testing.T) {
 			require.NoError(t, err)
 
 			if !tt.want.expectErr {
-				strings.HasPrefix(string(actualBody), "http://localhost:8080/")
+				assert.True(t, strings.HasPrefix(string(actualBody), "http://localhost:8080/"))
 				actualBody = bytes.TrimPrefix(actualBody, []byte("http://localhost:8080/"))
 				respURL, err := url.Parse(string(actualBody))
 				require.NoError(t, err)
