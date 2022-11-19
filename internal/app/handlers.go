@@ -57,35 +57,35 @@ func (h *Handler) postHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 type InMessage struct {
-	ExpandUrl url2.URL `json:"url"`
+	ExpandURL url2.URL `json:"url"`
 }
 
 //рабоче-крестьянским методом валидируем урл при чтении
 func (im *InMessage) UnmarshalJSON(data []byte) error {
 	aliasValue := &struct {
-		RawUrl string `json:"url"`
+		RawURL string `json:"url"`
 	}{}
 	if err := json.Unmarshal(data, aliasValue); err != nil {
 		return err
 	}
 
-	url, err := url2.Parse(aliasValue.RawUrl)
+	url, err := url2.Parse(aliasValue.RawURL)
 	if err != nil {
 		return err
 	}
 
-	im.ExpandUrl = *url
+	im.ExpandURL = *url
 	return nil
 }
 
 type OutMessage struct {
-	ShortUrl string `json:"result"`
+	ShortURL string `json:"result"`
 }
 
 //Добавьте в сервер новый эндпоинт POST /api/shorten,
 //принимающий в теле запроса JSON-объект {"url":"<some_url>"}  и
 //возвращающий в ответ объект {"result":"<shorten_url>"}.
-func (h *Handler) postJsonHandler(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) postHandlerJSON(w http.ResponseWriter, r *http.Request) {
 	inData := InMessage{}
 	err := json.NewDecoder(r.Body).Decode(&inData)
 	if err != nil {
@@ -93,17 +93,17 @@ func (h *Handler) postJsonHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	//отображаем переданный урл в уникальный идентификатор
-	short := shortenURL(&inData.ExpandUrl)
+	short := shortenURL(&inData.ExpandURL)
 	//добавлеям в мапу
 	//TODO storage insert
 	h.lock.Lock()
-	h.storage[short.Path] = inData.ExpandUrl.String()
+	h.storage[short.Path] = inData.ExpandURL.String()
 	h.lock.Unlock()
 	//проставляем заголовки
 	//TODO вынести строковые литералы в константы
 	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	//пишем тело ответа
-	outData := OutMessage{ShortUrl: short.String()}
+	outData := OutMessage{ShortURL: short.String()}
 	_ = json.NewEncoder(w).Encode(outData)
 }
