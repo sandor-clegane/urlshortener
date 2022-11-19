@@ -23,6 +23,7 @@ func NewHandler() *Handler {
 	//configuration router
 	h.MethodFunc("GET", "/{id}", h.getHandler)
 	h.MethodFunc("POST", "/", h.postHandler)
+	h.MethodFunc("POST", "/api/shorten", h.postJsonHandler)
 
 	return h
 }
