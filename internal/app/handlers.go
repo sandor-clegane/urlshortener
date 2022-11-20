@@ -1,7 +1,6 @@
 package app
 
 import (
-	"bytes"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -12,9 +11,7 @@ import (
 //возвращает ответ с кодом 307 и оригинальным URL в HTTP-заголовке Location.
 func (h *Handler) getHandler(w http.ResponseWriter, r *http.Request) {
 	//ищем в хранилище соответсвующий полный юрл
-	h.lock.RLock()
-	expandURL, ok := h.storage[string(bytes.TrimPrefix([]byte(r.URL.Path), []byte("/")))]
-	h.lock.RUnlock()
+	expandURL, ok := h.storage.LookUp(r.URL.Path)
 
 	if !ok {
 		http.Error(w, "Passed short url not found", http.StatusBadRequest)
@@ -43,13 +40,9 @@ func (h *Handler) postHandler(w http.ResponseWriter, r *http.Request) {
 
 	//сокращаем юрл и добавляем его в хранилище
 	//мапим только путь потому что префиксы у всех урлов одинаковые
-	//TODO storage.insert(...)
 	short, _ := h.shortenURL(url)
 
-	h.lock.Lock()
-	h.storage[string(bytes.TrimPrefix([]byte(short.Path), []byte("/")))] = string(b)
-	h.lock.Unlock()
-
+	h.storage.Insert(short.Path, string(b))
 	//устанавливаем статус ответа
 	w.WriteHeader(http.StatusCreated)
 	//пишем в тело ответа сокращенный url
@@ -92,13 +85,13 @@ func (h *Handler) postHandlerJSON(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+
 	//отображаем переданный урл в уникальный идентификатор
 	short, _ := h.shortenURL(&inData.ExpandURL)
+
 	//добавлеям в мапу
-	//TODO storage insert
-	h.lock.Lock()
-	h.storage[string(bytes.TrimPrefix([]byte(short.Path), []byte("/")))] = inData.ExpandURL.String()
-	h.lock.Unlock()
+	h.storage.Insert(short.Path, inData.ExpandURL.String())
+
 	//проставляем заголовки
 	//TODO вынести строковые литералы в константы
 	w.Header().Add("Content-Type", "application/json")

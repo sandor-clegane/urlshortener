@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"net/url"
 	"path"
-	"sync"
 
 	"github.com/caarlos0/env/v6"
 	"github.com/go-chi/chi"
@@ -13,10 +12,9 @@ import (
 )
 
 type Handler struct {
-	cfg Config
 	*chi.Mux
-	storage map[string]string
-	lock    sync.RWMutex
+	cfg     Config
+	storage *Storage
 }
 
 //TODO передаваемые параметры не валидируются
@@ -30,7 +28,7 @@ func NewHandler() *Handler {
 	//creating handler
 	h := &Handler{
 		Mux:     chi.NewRouter(),
-		storage: make(map[string]string),
+		storage: NewStorage(),
 	}
 	//parsing config
 	_ = env.Parse(&h.cfg)
