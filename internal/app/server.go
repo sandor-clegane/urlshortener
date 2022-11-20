@@ -22,7 +22,7 @@ type Handler struct {
 //TODO передаваемые параметры не валидируются
 type Config struct {
 	ServerAddress string `env:"SERVER_ADDRESS" envDefault:"localhost:8080"`
-	BaseURL       string `env:"BASE_URL"`
+	BaseURL       string `env:"BASE_URL"       envDefault:"http://localhost:8080/"`
 }
 
 //TODO обработать ошибки при создании

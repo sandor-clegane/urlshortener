@@ -47,7 +47,7 @@ func (h *Handler) postHandler(w http.ResponseWriter, r *http.Request) {
 	short, _ := h.shortenURL(url)
 
 	h.lock.Lock()
-	h.storage[short.Path] = string(b)
+	h.storage[string(bytes.TrimPrefix([]byte(short.Path), []byte("/")))] = string(b)
 	h.lock.Unlock()
 
 	//устанавливаем статус ответа
@@ -97,7 +97,7 @@ func (h *Handler) postHandlerJSON(w http.ResponseWriter, r *http.Request) {
 	//добавлеям в мапу
 	//TODO storage insert
 	h.lock.Lock()
-	h.storage[short.Path] = inData.ExpandURL.String()
+	h.storage[string(bytes.TrimPrefix([]byte(short.Path), []byte("/")))] = inData.ExpandURL.String()
 	h.lock.Unlock()
 	//проставляем заголовки
 	//TODO вынести строковые литералы в константы
