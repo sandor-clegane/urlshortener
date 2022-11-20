@@ -114,8 +114,8 @@ func TestPostHandler(t *testing.T) {
 			require.NoError(t, err)
 
 			if !tt.want.expectErr {
-				assert.True(t, strings.HasPrefix(string(actualBody), "http://localhost:8080/"))
-				actualBody = bytes.TrimPrefix(actualBody, []byte("http://localhost:8080/"))
+				assert.True(t, strings.HasPrefix(string(actualBody), h.cfg.BaseURL))
+				actualBody = bytes.TrimPrefix(actualBody, []byte(h.cfg.BaseURL))
 				respURL, err := url.Parse(string(actualBody))
 				require.NoError(t, err)
 				assert.Contains(t, h.storage, respURL.Path)
@@ -166,10 +166,10 @@ func TestPostJsonHandler(t *testing.T) {
 			require.NoError(t, err)
 
 			if !tt.want.expectErr {
-				assert.True(t, strings.HasPrefix(actualBody.ShortURL, "http://localhost:8080/"))
+				assert.True(t, strings.HasPrefix(actualBody.ShortURL, h.cfg.BaseURL))
 				actualBody.ShortURL = string(bytes.TrimPrefix(
 					[]byte(actualBody.ShortURL),
-					[]byte("http://localhost:8080/"),
+					[]byte(h.cfg.BaseURL),
 				))
 				respURL, err := url.Parse(actualBody.ShortURL)
 				require.NoError(t, err)
