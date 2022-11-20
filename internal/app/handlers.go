@@ -44,7 +44,7 @@ func (h *Handler) postHandler(w http.ResponseWriter, r *http.Request) {
 	//сокращаем юрл и добавляем его в хранилище
 	//мапим только путь потому что префиксы у всех урлов одинаковые
 	//TODO storage.insert(...)
-	short := shortenURL(url)
+	short, _ := h.shortenURL(url)
 
 	h.lock.Lock()
 	h.storage[short.Path] = string(b)
@@ -53,7 +53,7 @@ func (h *Handler) postHandler(w http.ResponseWriter, r *http.Request) {
 	//устанавливаем статус ответа
 	w.WriteHeader(http.StatusCreated)
 	//пишем в тело ответа сокращенный url
-	w.Write([]byte(short.String()))
+	_, _ = w.Write([]byte(short.String()))
 }
 
 type InMessage struct {
@@ -93,7 +93,7 @@ func (h *Handler) postHandlerJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	//отображаем переданный урл в уникальный идентификатор
-	short := shortenURL(&inData.ExpandURL)
+	short, _ := h.shortenURL(&inData.ExpandURL)
 	//добавлеям в мапу
 	//TODO storage insert
 	h.lock.Lock()
