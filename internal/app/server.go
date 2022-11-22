@@ -14,30 +14,41 @@ import (
 type Handler struct {
 	*chi.Mux
 	cfg     Config
-	storage *Storage
+	storage Storage
 }
 
 //TODO передаваемые параметры не валидируются
 type Config struct {
-	ServerAddress string `env:"SERVER_ADDRESS" envDefault:"localhost:8080"`
-	BaseURL       string `env:"BASE_URL"       envDefault:"http://localhost:8080/"`
+	ServerAddress   string `env:"SERVER_ADDRESS" envDefault:"localhost:8080"`
+	BaseURL         string `env:"BASE_URL"       envDefault:"http://localhost:8080/"`
+	FileStoragePath string `env:"FILE_STORAGE_PATH" envDefault:""`
 }
 
 //TODO обработать ошибки при создании
 func NewHandler() *Handler {
 	//creating handler
 	h := &Handler{
-		Mux:     chi.NewRouter(),
-		storage: NewStorage(),
+		Mux: chi.NewRouter(),
 	}
 	//parsing config
 	_ = env.Parse(&h.cfg)
+	//init storage
+	h.InitStorage()
 	//configuration handlers
 	h.MethodFunc("GET", "/{id}", h.getHandler)
 	h.MethodFunc("POST", "/", h.postHandler)
 	h.MethodFunc("POST", "/api/shorten", h.postHandlerJSON)
 
 	return h
+}
+
+//TODO мне не нравится эта функция ,возможно стоит по другому создавать хранилище
+func (h *Handler) InitStorage() {
+	if h.cfg.FileStoragePath == "" {
+		h.storage = NewInMemoryStorage()
+	} else {
+		h.storage = NewFileStorage(h.cfg.FileStoragePath)
+	}
 }
 
 func (h *Handler) Start() error {

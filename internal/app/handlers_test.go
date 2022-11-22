@@ -53,7 +53,10 @@ func TestGetHandler(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := NewHandler()
-			h.storage.storage = tt.storage
+
+			for k, v := range tt.storage {
+				h.storage.Insert(k, v)
+			}
 
 			request := httptest.NewRequest(http.MethodGet, tt.request, nil)
 
@@ -118,7 +121,8 @@ func TestPostHandler(t *testing.T) {
 				actualBody = bytes.TrimPrefix(actualBody, []byte(h.cfg.BaseURL))
 				respURL, err := url.Parse(string(actualBody))
 				require.NoError(t, err)
-				assert.Contains(t, h.storage.storage, respURL.Path)
+				_, ok := h.storage.LookUp(respURL.Path)
+				assert.True(t, ok)
 			}
 		})
 	}
@@ -173,7 +177,8 @@ func TestPostJsonHandler(t *testing.T) {
 				))
 				respURL, err := url.Parse(actualBody.ShortURL)
 				require.NoError(t, err)
-				assert.Contains(t, h.storage.storage, respURL.Path)
+				_, ok := h.storage.LookUp(respURL.Path)
+				assert.True(t, ok)
 			}
 		})
 	}
