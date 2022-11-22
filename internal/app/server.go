@@ -19,15 +19,23 @@ type Handler struct {
 }
 
 //TODO передаваемые параметры не валидируются
+//TODO стоит сделать дефолтные значения константами
 type Config struct {
 	ServerAddress   string `env:"SERVER_ADDRESS" envDefault:"localhost:8080"`
 	BaseURL         string `env:"BASE_URL"       envDefault:"http://localhost:8080/"`
 	FileStoragePath string `env:"FILE_STORAGE_PATH" envDefault:""`
 }
 
-func (c *Config) isDefault() bool {
-	return c.BaseURL == "http://localhost:8080/" &&
-		c.ServerAddress == "localhost:8080" && c.FileStoragePath == ""
+func (c *Config) ApplyConfig(other Config) {
+	if c.ServerAddress == "localhost:8080" {
+		c.ServerAddress = other.ServerAddress
+	}
+	if c.BaseURL == "http://localhost:8080/" {
+		c.BaseURL = other.BaseURL
+	}
+	if c.FileStoragePath == "" {
+		c.FileStoragePath = other.FileStoragePath
+	}
 }
 
 //TODO обработать ошибки при создании
@@ -42,20 +50,22 @@ func NewHandler() *Handler {
 }
 
 func (h *Handler) ConfigureHandler() {
+	var c2 Config
+	//parsing env config
+	_ = env.Parse(&h.cfg)
+
 	//parsing command line config
 	if !flag.Parsed() {
-		flag.StringVar(&h.cfg.ServerAddress, "a",
+		flag.StringVar(&c2.ServerAddress, "a",
 			"localhost:8080", "http server launching address")
-		flag.StringVar(&h.cfg.BaseURL, "b", "http://localhost:8080/",
+		flag.StringVar(&c2.BaseURL, "b", "http://localhost:8080/",
 			"base address of resulting shortened URL")
-		flag.StringVar(&h.cfg.FileStoragePath, "f", "",
+		flag.StringVar(&c2.FileStoragePath, "f", "",
 			"path to file with shortened URL")
 		flag.Parse()
 	}
-	//parsing env config
-	if h.cfg.isDefault() {
-		_ = env.Parse(&h.cfg)
-	}
+
+	h.cfg.ApplyConfig(c2)
 }
 
 func (h *Handler) InitHandler() {
