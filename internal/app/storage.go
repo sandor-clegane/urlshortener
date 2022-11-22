@@ -48,55 +48,31 @@ type Record struct {
 }
 
 type FileStorage struct {
-	p *producer
-	s *InMemoryStorage
+	f *os.File
+	*InMemoryStorage
 }
 
-func (s *FileStorage) LookUp(str string) (string, bool) {
-	return s.LookUp(str)
-}
-
-func (s *FileStorage) Insert(key, value string) {
-	s.Insert(key, value)
-
-	s.s.lock.Lock()
-	s.p.WriteRecord(&Record{Key: key, Value: value})
-	s.s.lock.Unlock()
+func (fs *FileStorage) Insert(key, value string) {
+	fs.lock.Lock()
+	fs.storage[strings.TrimPrefix(key, "/")] = value
+	_ = json.NewEncoder(fs.f).Encode(&Record{Key: key, Value: value})
+	fs.lock.Unlock()
 }
 
 func NewFileStorage(fileName string) *FileStorage {
+	file, _ := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE, 0755)
+
 	fs := &FileStorage{
-		s: NewInMemoryStorage(),
-		p: NewProducer(fileName),
+		InMemoryStorage: NewInMemoryStorage(),
+		f:               file,
 	}
 
-	file, _ := os.Open(fileName)
 	dec := json.NewDecoder(file)
 	for dec.More() {
 		var r Record
 		_ = dec.Decode(&r)
-		fs.s.Insert(r.Key, r.Value)
+		fs.storage[r.Key] = r.Value
 	}
 
 	return fs
-}
-
-type producer struct {
-	file    *os.File
-	encoder *json.Encoder
-}
-
-func NewProducer(fileName string) *producer {
-	file, _ := os.OpenFile(fileName, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0777)
-
-	return &producer{
-		file:    file,
-		encoder: json.NewEncoder(file),
-	}
-}
-func (p *producer) WriteRecord(record *Record) error {
-	return p.encoder.Encode(&record)
-}
-func (p *producer) Close() error {
-	return p.file.Close()
 }
