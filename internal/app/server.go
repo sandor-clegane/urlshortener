@@ -43,6 +43,7 @@ func NewHandler() *Handler {
 	h := &Handler{
 		Mux: chi.NewRouter(),
 	}
+
 	h.ConfigureHandler()
 	h.InitHandler()
 
@@ -71,6 +72,9 @@ func (h *Handler) ConfigureHandler() {
 func (h *Handler) InitHandler() {
 	//init storage
 	h.InitStorage()
+	//push middlewares
+	h.Use(gzipHandle)
+	h.Use(ungzipHandle)
 	//configuration handlers
 	h.MethodFunc("GET", "/{id}", h.getHandler)
 	h.MethodFunc("POST", "/", h.postHandler)
