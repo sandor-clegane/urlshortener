@@ -47,6 +47,7 @@ type Record struct {
 	Value string `json:"value"`
 }
 
+//TODO файл поменять на jsonEncoder от этого файла
 type FileStorage struct {
 	f *os.File
 	*InMemoryStorage

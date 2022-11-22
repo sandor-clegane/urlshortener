@@ -1,6 +1,7 @@
 package app
 
 import (
+	"flag"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -26,20 +27,31 @@ type Config struct {
 
 //TODO обработать ошибки при создании
 func NewHandler() *Handler {
-	//creating handler
-	h := &Handler{
+	return &Handler{
 		Mux: chi.NewRouter(),
 	}
-	//parsing config
+}
+
+func (h *Handler) ConfigureHandler() {
+	//parsing env config
 	_ = env.Parse(&h.cfg)
+	//parsing command line config
+	flag.StringVar(&h.cfg.ServerAddress, "a",
+		"localhost:8080", "http server launching address")
+	flag.StringVar(&h.cfg.BaseURL, "b", "http://localhost:8080/",
+		"base address of resulting shortened URL")
+	flag.StringVar(&h.cfg.FileStoragePath, "f", "",
+		"path to file with shortened URL")
+	flag.Parse()
+}
+
+func (h *Handler) InitHandler() {
 	//init storage
 	h.InitStorage()
 	//configuration handlers
 	h.MethodFunc("GET", "/{id}", h.getHandler)
 	h.MethodFunc("POST", "/", h.postHandler)
 	h.MethodFunc("POST", "/api/shorten", h.postHandlerJSON)
-
-	return h
 }
 
 //TODO мне не нравится эта функция ,возможно стоит по другому создавать хранилище
