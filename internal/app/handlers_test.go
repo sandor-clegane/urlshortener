@@ -53,8 +53,6 @@ func TestGetHandler(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := NewHandler()
-			h.ConfigureHandler()
-			h.InitHandler()
 
 			for k, v := range tt.storage {
 				h.storage.Insert(k, v)
@@ -105,8 +103,6 @@ func TestPostHandler(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := NewHandler()
-			h.ConfigureHandler()
-			h.InitHandler()
 
 			request := httptest.NewRequest(http.MethodPost, tt.request, nil)
 			w := httptest.NewRecorder()
@@ -158,8 +154,6 @@ func TestPostJsonHandler(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := NewHandler()
-			h.ConfigureHandler()
-			h.InitHandler()
 
 			request := httptest.NewRequest(http.MethodPost, tt.request, strings.NewReader(tt.body))
 			w := httptest.NewRecorder()
@@ -221,8 +215,6 @@ func TestDefaultHandler(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := NewHandler()
-			h.ConfigureHandler()
-			h.InitHandler()
 
 			request := httptest.NewRequest(tt.method, tt.request, nil)
 			w := httptest.NewRecorder()

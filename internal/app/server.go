@@ -27,22 +27,28 @@ type Config struct {
 
 //TODO обработать ошибки при создании
 func NewHandler() *Handler {
-	return &Handler{
+	h := &Handler{
 		Mux: chi.NewRouter(),
 	}
+	h.ConfigureHandler()
+	h.InitHandler()
+
+	return h
 }
 
 func (h *Handler) ConfigureHandler() {
 	//parsing env config
 	_ = env.Parse(&h.cfg)
 	//parsing command line config
-	flag.StringVar(&h.cfg.ServerAddress, "a",
-		"localhost:8080", "http server launching address")
-	flag.StringVar(&h.cfg.BaseURL, "b", "http://localhost:8080/",
-		"base address of resulting shortened URL")
-	flag.StringVar(&h.cfg.FileStoragePath, "f", "",
-		"path to file with shortened URL")
-	flag.Parse()
+	if !flag.Parsed() {
+		flag.StringVar(&h.cfg.ServerAddress, "a",
+			"localhost:8080", "http server launching address")
+		flag.StringVar(&h.cfg.BaseURL, "b", "http://localhost:8080/",
+			"base address of resulting shortened URL")
+		flag.StringVar(&h.cfg.FileStoragePath, "f", "",
+			"path to file with shortened URL")
+		flag.Parse()
+	}
 }
 
 func (h *Handler) InitHandler() {
