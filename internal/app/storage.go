@@ -2,6 +2,7 @@ package app
 
 import (
 	"encoding/json"
+	"log"
 	"os"
 	"strings"
 	"sync"
@@ -20,8 +21,10 @@ type InMemoryStorage struct {
 }
 
 func (s *InMemoryStorage) LookUp(str string) (string, bool) {
+	trimmedStr := strings.TrimPrefix(str, "/")
+
 	s.lock.RLock()
-	res, ok := s.storage[strings.TrimPrefix(str, "/")]
+	res, ok := s.storage[trimmedStr]
 	s.lock.RUnlock()
 
 	if !ok {
@@ -31,8 +34,10 @@ func (s *InMemoryStorage) LookUp(str string) (string, bool) {
 }
 
 func (s *InMemoryStorage) Insert(key, value string) {
+	trimmedKey := strings.TrimPrefix(key, "/")
+
 	s.lock.Lock()
-	s.storage[strings.TrimPrefix(key, "/")] = value
+	s.storage[trimmedKey] = value
 	s.lock.Unlock()
 }
 
@@ -42,36 +47,45 @@ func NewInMemoryStorage() *InMemoryStorage {
 	}
 }
 
+//file storage impl
+type FileStorage struct {
+	enc *json.Encoder
+	*InMemoryStorage
+}
+
 type Record struct {
 	Key   string `json:"key"`
 	Value string `json:"value"`
 }
 
-//TODO файл поменять на jsonEncoder от этого файла
-type FileStorage struct {
-	f *os.File
-	*InMemoryStorage
-}
-
 func (fs *FileStorage) Insert(key, value string) {
+	trimmedKey := strings.TrimPrefix(key, "/")
+	r := Record{Key: key, Value: value}
+
 	fs.lock.Lock()
-	fs.storage[strings.TrimPrefix(key, "/")] = value
-	_ = json.NewEncoder(fs.f).Encode(&Record{Key: key, Value: value})
+	fs.storage[trimmedKey] = value
+	_ = fs.enc.Encode(&r)
 	fs.lock.Unlock()
 }
 
 func NewFileStorage(fileName string) *FileStorage {
-	file, _ := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE, 0755)
+	file, err := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE, 0755)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	fs := &FileStorage{
 		InMemoryStorage: NewInMemoryStorage(),
-		f:               file,
+		enc:             json.NewEncoder(file),
 	}
 
 	dec := json.NewDecoder(file)
 	for dec.More() {
 		var r Record
-		_ = dec.Decode(&r)
+		err = dec.Decode(&r)
+		if err != nil {
+			log.Fatal(err)
+		}
 		fs.storage[r.Key] = r.Value
 	}
 

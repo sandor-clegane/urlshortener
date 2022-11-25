@@ -46,8 +46,8 @@ func (h *Handler) postHandler(w http.ResponseWriter, r *http.Request) {
 
 	h.storage.Insert(short.Path, string(b))
 	//устанавливаем статус ответа
-	w.WriteHeader(http.StatusCreated)
 	//пишем в тело ответа сокращенный url
+	w.WriteHeader(http.StatusCreated)
 	_, _ = w.Write([]byte(short.String()))
 }
 

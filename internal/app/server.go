@@ -3,6 +3,7 @@ package app
 import (
 	"flag"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"path"
@@ -18,27 +19,6 @@ type Handler struct {
 	storage Storage
 }
 
-//TODO передаваемые параметры не валидируются
-//TODO стоит сделать дефолтные значения константами
-type Config struct {
-	ServerAddress   string `env:"SERVER_ADDRESS" envDefault:"localhost:8080"`
-	BaseURL         string `env:"BASE_URL"       envDefault:"http://localhost:8080/"`
-	FileStoragePath string `env:"FILE_STORAGE_PATH" envDefault:""`
-}
-
-func (c *Config) ApplyConfig(other Config) {
-	if c.ServerAddress == "localhost:8080" {
-		c.ServerAddress = other.ServerAddress
-	}
-	if c.BaseURL == "http://localhost:8080/" {
-		c.BaseURL = other.BaseURL
-	}
-	if c.FileStoragePath == "" {
-		c.FileStoragePath = other.FileStoragePath
-	}
-}
-
-//TODO обработать ошибки при создании
 func NewHandler() *Handler {
 	h := &Handler{
 		Mux: chi.NewRouter(),
@@ -53,15 +33,18 @@ func NewHandler() *Handler {
 func (h *Handler) ConfigureHandler() {
 	var c2 Config
 	//parsing env config
-	_ = env.Parse(&h.cfg)
+	err := env.Parse(&h.cfg)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	//parsing command line config
 	if !flag.Parsed() {
 		flag.StringVar(&c2.ServerAddress, "a",
-			"localhost:8080", "http server launching address")
-		flag.StringVar(&c2.BaseURL, "b", "http://localhost:8080/",
+			DefaultServerAddress, "http server launching address")
+		flag.StringVar(&c2.BaseURL, "b", DefaultBaseURL,
 			"base address of resulting shortened URL")
-		flag.StringVar(&c2.FileStoragePath, "f", "",
+		flag.StringVar(&c2.FileStoragePath, "f", DefaultFileStoragePath,
 			"path to file with shortened URL")
 		flag.Parse()
 	}
@@ -81,7 +64,6 @@ func (h *Handler) InitHandler() {
 	h.MethodFunc("POST", "/api/shorten", h.postHandlerJSON)
 }
 
-//TODO мне не нравится эта функция ,возможно стоит по другому создавать хранилище
 func (h *Handler) InitStorage() {
 	if h.cfg.FileStoragePath == "" {
 		h.storage = NewInMemoryStorage()
