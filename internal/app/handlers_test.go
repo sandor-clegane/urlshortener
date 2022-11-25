@@ -2,6 +2,7 @@ package app
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -14,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestAPIServer_getHandler(t *testing.T) {
+func TestGetHandler(t *testing.T) {
 	type want struct {
 		expandURL    string
 		statusCode   int
@@ -52,7 +53,10 @@ func TestAPIServer_getHandler(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := NewHandler()
-			h.storage = tt.storage
+
+			for k, v := range tt.storage {
+				h.storage.Insert(k, v)
+			}
 
 			request := httptest.NewRequest(http.MethodGet, tt.request, nil)
 
@@ -77,7 +81,7 @@ func TestAPIServer_getHandler(t *testing.T) {
 	}
 }
 
-func TestAPIServer_postHandler(t *testing.T) {
+func TestPostHandler(t *testing.T) {
 	type want struct {
 		statusCode int
 		expectErr  bool
@@ -113,17 +117,74 @@ func TestAPIServer_postHandler(t *testing.T) {
 			require.NoError(t, err)
 
 			if !tt.want.expectErr {
-				assert.True(t, strings.HasPrefix(string(actualBody), "http://localhost:8080/"))
-				actualBody = bytes.TrimPrefix(actualBody, []byte("http://localhost:8080/"))
+				assert.True(t, strings.HasPrefix(string(actualBody), h.cfg.BaseURL))
+				actualBody = bytes.TrimPrefix(actualBody, []byte(h.cfg.BaseURL))
 				respURL, err := url.Parse(string(actualBody))
 				require.NoError(t, err)
-				assert.Contains(t, h.storage, respURL.Path)
+				_, ok := h.storage.LookUp(respURL.Path)
+				assert.True(t, ok)
 			}
 		})
 	}
 }
 
-func TestAPIServer_defaultHandler(t *testing.T) {
+func TestPostJsonHandler(t *testing.T) {
+	type want struct {
+		statusCode  int
+		contentType string
+		expectErr   bool
+	}
+	tests := []struct {
+		name    string
+		request string
+		body    string
+		want    want
+	}{
+		{
+			name:    "simple test 1",
+			request: "/api/shorten",
+			body:    "{\"url\" :\"http://yandex.ru\"}",
+			want: want{
+				expectErr:   false,
+				statusCode:  http.StatusCreated,
+				contentType: "application/json",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := NewHandler()
+
+			request := httptest.NewRequest(http.MethodPost, tt.request, strings.NewReader(tt.body))
+			w := httptest.NewRecorder()
+			h.ServeHTTP(w, request)
+			result := w.Result()
+
+			assert.Equal(t, tt.want.statusCode, result.StatusCode)
+			assert.Equal(t, tt.want.contentType, result.Header.Get("Content-Type"))
+
+			actualBody := OutMessage{}
+			err := json.NewDecoder(result.Body).Decode(&actualBody)
+			require.NoError(t, err)
+			err = result.Body.Close()
+			require.NoError(t, err)
+
+			if !tt.want.expectErr {
+				assert.True(t, strings.HasPrefix(actualBody.ShortURL, h.cfg.BaseURL))
+				actualBody.ShortURL = string(bytes.TrimPrefix(
+					[]byte(actualBody.ShortURL),
+					[]byte(h.cfg.BaseURL),
+				))
+				respURL, err := url.Parse(actualBody.ShortURL)
+				require.NoError(t, err)
+				_, ok := h.storage.LookUp(respURL.Path)
+				assert.True(t, ok)
+			}
+		})
+	}
+}
+
+func TestDefaultHandler(t *testing.T) {
 	type want struct {
 		statusCode int
 	}
