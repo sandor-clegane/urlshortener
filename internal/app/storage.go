@@ -15,7 +15,7 @@ var _ Storage = &FileStorage{}
 type Storage interface {
 	LookUp(str string) (string, bool)
 	Insert(key, value, userID string)
-	GetPairsById(userID string) ([]PairURL, bool)
+	GetPairsByID(userID string) ([]PairURL, bool)
 }
 
 //MemoryStorage impl

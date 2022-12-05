@@ -144,7 +144,7 @@ func (h *Handler) getAllURLHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	listOfURL, ok := h.storage.GetPairsById(userID)
+	listOfURL, ok := h.storage.GetPairsByID(userID)
 	if !ok {
 		http.Error(w, "User didn`t shorten any URL", http.StatusNoContent)
 	}
