@@ -148,7 +148,7 @@ func (h *Handler) getAllURLHandler(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		http.Error(w, "User didn`t shorten any URL", http.StatusNoContent)
 	}
-	for i, _ := range listOfURL {
+	for i := 0; i < len(listOfURL); i++ {
 		shortWithBase, _ := Join(h.cfg.BaseURL, listOfURL[i].ShortURL)
 		listOfURL[i].ShortURL = (*shortWithBase).String()
 	}
