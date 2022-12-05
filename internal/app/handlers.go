@@ -24,7 +24,7 @@ func (h *Handler) getHandler(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) postHandler(w http.ResponseWriter, r *http.Request) {
 	authCookie, err := r.Cookie("userID")
 	if err != nil {
-		http.Error(w, "No authentication cookie", http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	userID, err := h.cookie.extractValue(authCookie)
@@ -60,7 +60,6 @@ type InMessage struct {
 	ExpandURL url2.URL `json:"url"`
 }
 
-//рабоче-крестьянским методом валидируем урл при чтении
 func (im *InMessage) UnmarshalJSON(data []byte) error {
 	aliasValue := &struct {
 		RawURL string `json:"url"`
@@ -88,7 +87,7 @@ type OutMessage struct {
 func (h *Handler) postHandlerJSON(w http.ResponseWriter, r *http.Request) {
 	authCookie, err := r.Cookie("userID")
 	if err != nil {
-		http.Error(w, "No authentication cookie", http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	userID, err := h.cookie.extractValue(authCookie)
@@ -136,7 +135,7 @@ type PairURL struct {
 func (h *Handler) getAllURLHandler(w http.ResponseWriter, r *http.Request) {
 	authCookie, err := r.Cookie("userID")
 	if err != nil {
-		http.Error(w, "No authentication cookie", http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	userID, err := h.cookie.extractValue(authCookie)

@@ -31,7 +31,7 @@ func (c *cookieService) extractValue(cookie *http.Cookie) (string, error) {
 	return string(signedValue[sha256.Size:]), nil
 }
 
-func (c *cookieService) createAndSign(w http.ResponseWriter) error {
+func (c *cookieService) createAndSign(w http.ResponseWriter, r *http.Request) error {
 	cookie := http.Cookie{
 		Name:     "userID",
 		Value:    uuid.New().String(),
@@ -47,7 +47,7 @@ func (c *cookieService) createAndSign(w http.ResponseWriter) error {
 	//value structure is fixed :[signature][user_id]
 	cookie.Value = string(signature) + cookie.Value
 
-	return write(w, cookie)
+	return write(w, r, cookie)
 }
 
 func (c *cookieService) checkSign(r *http.Request, name string) error {
@@ -74,9 +74,10 @@ func (c *cookieService) checkSign(r *http.Request, name string) error {
 	return nil
 }
 
-func write(w http.ResponseWriter, cookie http.Cookie) error {
+func write(w http.ResponseWriter, r *http.Request, cookie http.Cookie) error {
 	cookie.Value = base64.URLEncoding.EncodeToString([]byte(cookie.Value))
 	http.SetCookie(w, &cookie)
+	r.AddCookie(&cookie)
 	return nil
 }
 

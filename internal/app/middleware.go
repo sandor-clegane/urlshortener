@@ -89,7 +89,7 @@ func (c *cookieService) Authentication(next http.Handler) http.Handler {
 		}
 
 		if errors.Is(err, http.ErrNoCookie) || errors.Is(err, ErrInvalidValue) {
-			err = c.createAndSign(w)
+			err = c.createAndSign(w, r)
 			if err == nil {
 				next.ServeHTTP(w, r)
 				return
