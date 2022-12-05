@@ -17,6 +17,7 @@ type Handler struct {
 	*chi.Mux
 	cfg     Config
 	storage Storage
+	cookie  *cookieService
 }
 
 func NewHandler() *Handler {
@@ -55,13 +56,14 @@ func (h *Handler) ConfigureHandler() {
 func (h *Handler) InitHandler() {
 	//init storage
 	h.InitStorage()
+	h.cookie = New(h.cfg.Key)
 	//push middlewares
-	h.Use(gzipHandle)
-	h.Use(ungzipHandle)
+	h.Use(gzipHandle, ungzipHandle, h.cookie.Authentication)
 	//configuration handlers
 	h.MethodFunc("GET", "/{id}", h.getHandler)
 	h.MethodFunc("POST", "/", h.postHandler)
 	h.MethodFunc("POST", "/api/shorten", h.postHandlerJSON)
+	h.MethodFunc("GET", "/api/user/urls", h.getAllURLHandler)
 }
 
 func (h *Handler) InitStorage() {

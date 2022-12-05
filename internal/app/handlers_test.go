@@ -22,7 +22,7 @@ func TestGetHandler(t *testing.T) {
 		expectErr    bool
 		maybeErrBody string
 	}
-	//TODO refactor storage to interface
+
 	tests := []struct {
 		storage map[string]string
 		name    string
@@ -55,7 +55,7 @@ func TestGetHandler(t *testing.T) {
 			h := NewHandler()
 
 			for k, v := range tt.storage {
-				h.storage.Insert(k, v)
+				h.storage.Insert(k, v, "some_user")
 			}
 
 			request := httptest.NewRequest(http.MethodGet, tt.request, nil)

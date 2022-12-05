@@ -8,16 +8,21 @@ import (
 	"sync"
 )
 
+var _ Storage = &InMemoryStorage{}
+var _ Storage = &FileStorage{}
+
 //general storage interface
 type Storage interface {
 	LookUp(str string) (string, bool)
-	Insert(key, value string)
+	Insert(key, value, userID string)
+	GetPairsById(userID string) ([]PairURL, bool)
 }
 
 //MemoryStorage impl
 type InMemoryStorage struct {
-	storage map[string]string
-	lock    sync.RWMutex
+	storage    map[string]string
+	userToKeys map[string][]string
+	lock       sync.RWMutex
 }
 
 func (s *InMemoryStorage) LookUp(str string) (string, bool) {
@@ -33,17 +38,36 @@ func (s *InMemoryStorage) LookUp(str string) (string, bool) {
 	return res, ok
 }
 
-func (s *InMemoryStorage) Insert(key, value string) {
+func (s *InMemoryStorage) Insert(key, value, userID string) {
 	trimmedKey := strings.TrimPrefix(key, "/")
 
 	s.lock.Lock()
 	s.storage[trimmedKey] = value
+	s.userToKeys[userID] = append(s.userToKeys[userID], trimmedKey)
 	s.lock.Unlock()
+}
+
+func (s *InMemoryStorage) GetPairsById(userID string) ([]PairURL, bool) {
+	keys, ok := s.userToKeys[userID]
+	if !ok {
+		return nil, ok
+	}
+	result := make([]PairURL, 0, len(keys))
+
+	for _, key := range keys {
+		result = append(result, PairURL{
+			ExpandURL: s.storage[key],
+			ShortURL:  key,
+		})
+	}
+
+	return result, true
 }
 
 func NewInMemoryStorage() *InMemoryStorage {
 	return &InMemoryStorage{
-		storage: make(map[string]string),
+		storage:    make(map[string]string),
+		userToKeys: make(map[string][]string),
 	}
 }
 
@@ -58,13 +82,14 @@ type Record struct {
 	Value string `json:"value"`
 }
 
-func (fs *FileStorage) Insert(key, value string) {
+func (fs *FileStorage) Insert(key, value, userID string) {
 	trimmedKey := strings.TrimPrefix(key, "/")
 	r := Record{Key: key, Value: value}
 
 	fs.lock.Lock()
 	fs.storage[trimmedKey] = value
 	_ = fs.enc.Encode(&r)
+	fs.userToKeys[userID] = append(fs.userToKeys[userID], value)
 	fs.lock.Unlock()
 }
 
