@@ -47,7 +47,7 @@ func (s *InMemoryStorage) Insert(key, value, userID string) {
 	s.lock.Unlock()
 }
 
-func (s *InMemoryStorage) GetPairsById(userID string) ([]PairURL, bool) {
+func (s *InMemoryStorage) GetPairsByID(userID string) ([]PairURL, bool) {
 	keys, ok := s.userToKeys[userID]
 	if !ok {
 		return nil, ok

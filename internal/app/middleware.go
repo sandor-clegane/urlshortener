@@ -97,6 +97,5 @@ func (c *cookieService) Authentication(next http.Handler) http.Handler {
 		}
 
 		io.WriteString(w, err.Error())
-		return
 	})
 }
