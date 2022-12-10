@@ -12,5 +12,4 @@ func main() {
 	if err := h.Start(); err != http.ErrServerClosed && err != nil {
 		log.Fatal(err)
 	}
-
 }

@@ -39,6 +39,7 @@ func (h *Handler) ConfigureHandler() {
 		log.Fatal(err)
 	}
 
+	//TODO перенести в config.Parse()
 	//parsing command line config
 	if !flag.Parsed() {
 		flag.StringVar(&c2.ServerAddress, "a",

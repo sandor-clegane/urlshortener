@@ -5,7 +5,7 @@ const (
 	DefaultBaseURL         = "http://localhost:8080/"
 	DefaultFileStoragePath = ""
 	DefaultKey             = "SuperSecretKey2022"
-	DefaultDatabaseDSN     = ""
+	DefaultDatabaseDSN     = "user=pqgotest dbname=pqgotest sslmode=verify-full"
 )
 
 type Config struct {
@@ -13,7 +13,7 @@ type Config struct {
 	BaseURL         string `env:"BASE_URL"       envDefault:"http://localhost:8080/"`
 	FileStoragePath string `env:"FILE_STORAGE_PATH" envDefault:""`
 	Key             string `env:"SECRET_KEY" envDefault:"SuperSecretKey2022"`
-	DatabaseDSN     string `env:"DATABASE_DSN" envDefault:""`
+	DatabaseDSN     string `env:"DATABASE_DSN" envDefault:"user=pqgotest dbname=pqgotest sslmode=verify-full"`
 }
 
 func (c *Config) ApplyConfig(other Config) {

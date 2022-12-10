@@ -6,6 +6,8 @@ import (
 	"io"
 	"net/http"
 	url2 "net/url"
+
+	_ "github.com/lib/pq"
 )
 
 //Эндпоинт GET /{id} принимает в качестве URL-параметра идентификатор сокращённого URL и
