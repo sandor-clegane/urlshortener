@@ -5,6 +5,7 @@ const (
 	DefaultBaseURL         = "http://localhost:8080/"
 	DefaultFileStoragePath = ""
 	DefaultKey             = "SuperSecretKey2022"
+	DefaultDatabaseDSN     = ""
 )
 
 type Config struct {
@@ -12,6 +13,7 @@ type Config struct {
 	BaseURL         string `env:"BASE_URL"       envDefault:"http://localhost:8080/"`
 	FileStoragePath string `env:"FILE_STORAGE_PATH" envDefault:""`
 	Key             string `env:"SECRET_KEY" envDefault:"SuperSecretKey2022"`
+	DatabaseDSN     string `env:"DATABASE_DSN" envDefault:""`
 }
 
 func (c *Config) ApplyConfig(other Config) {
@@ -26,5 +28,8 @@ func (c *Config) ApplyConfig(other Config) {
 	}
 	if c.Key == DefaultKey {
 		c.Key = other.Key
+	}
+	if c.DatabaseDSN == DefaultDatabaseDSN {
+		c.DatabaseDSN = other.DatabaseDSN
 	}
 }

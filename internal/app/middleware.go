@@ -8,7 +8,6 @@ import (
 	"strings"
 )
 
-//Сервис поддерживает gzip
 type gzipWriter struct {
 	http.ResponseWriter
 	Writer io.Writer
@@ -21,7 +20,7 @@ func (w gzipWriter) Write(b []byte) (int, error) {
 
 //middleware обработчик подменяет writer на gzip.writer
 //если клиент принимает сжатые ответы
-func gzipHandle(next http.Handler) http.Handler {
+func gzipCompressHandle(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// проверяем, что клиент поддерживает gzip-сжатие
 		if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
@@ -56,7 +55,7 @@ func (r gzipReaderCloser) Read(b []byte) (int, error) {
 
 //middleware обработчик подменяет writer на gzip.writer
 //если клиент принимает сжатые ответы
-func ungzipHandle(next http.Handler) http.Handler {
+func gzipDecompressHandle(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// проверяем, что клиент поддерживает gzip-сжатие
 		if !strings.Contains(r.Header.Get("Content-Encoding"), "gzip") {

@@ -47,23 +47,27 @@ func (h *Handler) ConfigureHandler() {
 			"base address of resulting shortened URL")
 		flag.StringVar(&c2.FileStoragePath, "f", DefaultFileStoragePath,
 			"path to file with shortened URL")
+		flag.StringVar(&c2.DatabaseDSN, "d", DefaultDatabaseDSN,
+			"DB connection address")
 		flag.Parse()
 	}
 
 	h.cfg.ApplyConfig(c2)
 }
 
+//TODO паттерны стоит вынести в константы
 func (h *Handler) InitHandler() {
 	//init storage
 	h.InitStorage()
 	h.cookie = New(h.cfg.Key)
 	//push middlewares
-	h.Use(gzipHandle, ungzipHandle, h.cookie.Authentication)
+	h.Use(gzipCompressHandle, gzipDecompressHandle, h.cookie.Authentication)
 	//configuration handlers
 	h.MethodFunc("GET", "/{id}", h.getHandler)
 	h.MethodFunc("POST", "/", h.postHandler)
 	h.MethodFunc("POST", "/api/shorten", h.postHandlerJSON)
 	h.MethodFunc("GET", "/api/user/urls", h.getAllURLHandler)
+	h.MethodFunc("GET", "/ping", h.PingConnectionDB)
 }
 
 func (h *Handler) InitStorage() {
@@ -78,6 +82,7 @@ func (h *Handler) Start() error {
 	return http.ListenAndServe(h.cfg.ServerAddress, h)
 }
 
+//TODO стоит вынести в отдельный пакет common
 //пишем свой джоин потому что проект на версии go 1.16
 func Join(basePath string, paths ...string) (*url.URL, error) {
 	u, err := url.Parse(basePath)

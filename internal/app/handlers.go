@@ -1,6 +1,7 @@
 package app
 
 import (
+	"database/sql"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -152,10 +153,28 @@ func (h *Handler) getAllURLHandler(w http.ResponseWriter, r *http.Request) {
 		shortWithBase, _ := Join(h.cfg.BaseURL, listOfURL[i].ShortURL)
 		listOfURL[i].ShortURL = (*shortWithBase).String()
 	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	err = json.NewEncoder(w).Encode(listOfURL)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	}
+}
+
+// PingConnectionDB Добавьте в сервис хендлер GET /ping, который при запросе проверяет соединение с базой данных.
+//При успешной проверке хендлер должен вернуть HTTP-статус 200 OK,
+//при неуспешной — 500 Internal Server Error
+func (h *Handler) PingConnectionDB(w http.ResponseWriter, _ *http.Request) {
+	db, err := sql.Open("postgres", h.cfg.DatabaseDSN)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	}
+	defer db.Close()
+
+	err = db.Ping()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+	w.WriteHeader(http.StatusOK)
 }
