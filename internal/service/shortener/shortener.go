@@ -37,7 +37,7 @@ func (s *urlshortenerServiceImpl) ShortenURL(ctx context.Context, userID, rawURL
 	}
 	s.storage.Insert(ctx, shortURL.Path, rawURL, userID)
 
-	return fmt.Sprintf("%s", shortURL), nil
+	return shortURL.String(), nil
 }
 
 func (s *urlshortenerServiceImpl) ExpandURL(ctx context.Context, shortURL string) (string, error) {
