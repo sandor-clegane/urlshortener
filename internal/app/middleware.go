@@ -2,7 +2,6 @@ package app
 
 import (
 	"compress/gzip"
-	"errors"
 	"io"
 	"net/http"
 	"strings"
@@ -18,9 +17,9 @@ func (w gzipWriter) Write(b []byte) (int, error) {
 	return w.Writer.Write(b)
 }
 
-//middleware обработчик подменяет writer на gzip.writer
+//GzipCompressHandle middleware обработчик подменяет writer на gzip.writer
 //если клиент принимает сжатые ответы
-func gzipCompressHandle(next http.Handler) http.Handler {
+func GzipCompressHandle(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// проверяем, что клиент поддерживает gzip-сжатие
 		if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
@@ -53,9 +52,9 @@ func (r gzipReaderCloser) Read(b []byte) (int, error) {
 	return r.Reader.Read(b)
 }
 
-//middleware обработчик подменяет writer на gzip.writer
+//GzipDecompressHandle middleware обработчик подменяет writer на gzip.writer
 //если клиент принимает сжатые ответы
-func gzipDecompressHandle(next http.Handler) http.Handler {
+func GzipDecompressHandle(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// проверяем, что клиент поддерживает gzip-сжатие
 		if !strings.Contains(r.Header.Get("Content-Encoding"), "gzip") {
@@ -76,25 +75,5 @@ func gzipDecompressHandle(next http.Handler) http.Handler {
 		r.Body = gzipReaderCloser{Reader: gz, ReadCloser: r.Body}
 		//передаём обработчику страницы переменную типа gzipWriter для вывода данных
 		next.ServeHTTP(w, r)
-	})
-}
-
-func (c *cookieService) Authentication(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		err := c.checkSign(r, "userID")
-		if err == nil {
-			next.ServeHTTP(w, r)
-			return
-		}
-
-		if errors.Is(err, http.ErrNoCookie) || errors.Is(err, ErrInvalidValue) {
-			err = c.createAndSign(w, r)
-			if err == nil {
-				next.ServeHTTP(w, r)
-				return
-			}
-		}
-
-		io.WriteString(w, err.Error())
 	})
 }

@@ -1,4 +1,6 @@
-package app
+package config
+
+import "flag"
 
 const (
 	DefaultServerAddress   = "localhost:8080"
@@ -14,6 +16,20 @@ type Config struct {
 	FileStoragePath string `env:"FILE_STORAGE_PATH" envDefault:""`
 	Key             string `env:"SECRET_KEY" envDefault:"SuperSecretKey2022"`
 	DatabaseDSN     string `env:"DATABASE_DSN" envDefault:"user=pqgotest dbname=pqgotest sslmode=verify-full"`
+}
+
+func (c *Config) ParseArgsCMD() {
+	if !flag.Parsed() {
+		flag.StringVar(&c.ServerAddress, "a",
+			DefaultServerAddress, "http server launching address")
+		flag.StringVar(&c.BaseURL, "b", DefaultBaseURL,
+			"base address of resulting shortened URL")
+		flag.StringVar(&c.FileStoragePath, "f", DefaultFileStoragePath,
+			"path to file with shortened URL")
+		flag.StringVar(&c.DatabaseDSN, "d", DefaultDatabaseDSN,
+			"DB connection address")
+		flag.Parse()
+	}
 }
 
 func (c *Config) ApplyConfig(other Config) {

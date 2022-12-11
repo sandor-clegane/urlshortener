@@ -1,103 +1,64 @@
 package app
 
 import (
-	"flag"
-	"fmt"
 	"log"
 	"net/http"
-	"net/url"
-	"path"
 
 	"github.com/caarlos0/env/v6"
 	"github.com/go-chi/chi"
-	"github.com/google/uuid"
+	"github.com/sandor-clegane/urlshortener/internal/config"
+	"github.com/sandor-clegane/urlshortener/internal/handlers/db"
+	"github.com/sandor-clegane/urlshortener/internal/handlers/url"
+	"github.com/sandor-clegane/urlshortener/internal/storages"
 )
 
-type Handler struct {
+type App struct {
 	*chi.Mux
-	cfg     Config
-	storage Storage
-	cookie  *cookieService
+	Cfg  config.Config
+	dbh  db.DBHandler
+	urlh url.URLHandler
 }
 
-func NewHandler() *Handler {
-	h := &Handler{
+func New() *App {
+	h := &App{
 		Mux: chi.NewRouter(),
 	}
 
-	h.ConfigureHandler()
-	h.InitHandler()
+	h.getConfig()
+	h.initHandlers()
 
 	return h
 }
 
-func (h *Handler) ConfigureHandler() {
-	var c2 Config
+func (h *App) getConfig() {
+	var c2 config.Config
 	//parsing env config
-	err := env.Parse(&h.cfg)
+	err := env.Parse(&h.Cfg)
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	//TODO перенести в config.Parse()
 	//parsing command line config
-	if !flag.Parsed() {
-		flag.StringVar(&c2.ServerAddress, "a",
-			DefaultServerAddress, "http server launching address")
-		flag.StringVar(&c2.BaseURL, "b", DefaultBaseURL,
-			"base address of resulting shortened URL")
-		flag.StringVar(&c2.FileStoragePath, "f", DefaultFileStoragePath,
-			"path to file with shortened URL")
-		flag.StringVar(&c2.DatabaseDSN, "d", DefaultDatabaseDSN,
-			"DB connection address")
-		flag.Parse()
-	}
-
-	h.cfg.ApplyConfig(c2)
+	c2.ParseArgsCMD()
+	//applying config
+	h.Cfg.ApplyConfig(c2)
 }
 
 //TODO паттерны стоит вынести в константы
-func (h *Handler) InitHandler() {
+func (h *App) initHandlers() {
 	//init storage
-	h.InitStorage()
-	h.cookie = New(h.cfg.Key)
+	stg := storages.CreateStorage(h.Cfg)
+	h.dbh = db.NewDBHandler(h.Cfg.DatabaseDSN)
+	h.urlh = url.New(stg, h.Cfg)
 	//push middlewares
-	h.Use(gzipCompressHandle, gzipDecompressHandle, h.cookie.Authentication)
+	h.Use(GzipCompressHandle, GzipDecompressHandle, h.urlh.GetAuthorizationMiddleware())
 	//configuration handlers
-	h.MethodFunc("GET", "/{id}", h.getHandler)
-	h.MethodFunc("POST", "/", h.postHandler)
-	h.MethodFunc("POST", "/api/shorten", h.postHandlerJSON)
-	h.MethodFunc("GET", "/api/user/urls", h.getAllURLHandler)
-	h.MethodFunc("GET", "/ping", h.PingConnectionDB)
+	h.MethodFunc("GET", "/{id}", h.urlh.ExpandURL)
+	h.MethodFunc("POST", "/", h.urlh.ShortenURL)
+	h.MethodFunc("POST", "/api/shorten", h.urlh.ShortenURLwJSON)
+	h.MethodFunc("GET", "/api/user/urls", h.urlh.GetAllURL)
+	h.MethodFunc("GET", "/ping", h.dbh.PingConnectionDB)
 }
 
-func (h *Handler) InitStorage() {
-	if h.cfg.FileStoragePath == "" {
-		h.storage = NewInMemoryStorage()
-	} else {
-		h.storage = NewFileStorage(h.cfg.FileStoragePath)
-	}
-}
-
-func (h *Handler) Start() error {
-	return http.ListenAndServe(h.cfg.ServerAddress, h)
-}
-
-//TODO стоит вынести в отдельный пакет common
-//пишем свой джоин потому что проект на версии go 1.16
-func Join(basePath string, paths ...string) (*url.URL, error) {
-	u, err := url.Parse(basePath)
-	if err != nil {
-		return nil, fmt.Errorf("invalid url")
-	}
-
-	p2 := append([]string{u.Path}, paths...)
-	result := path.Join(p2...)
-	u.Path = result
-
-	return u, nil
-}
-
-func (h *Handler) shortenURL(_ *url.URL) (*url.URL, error) {
-	return Join(h.cfg.BaseURL, uuid.NewString())
+func (h *App) Start() error {
+	return http.ListenAndServe(h.Cfg.ServerAddress, h)
 }

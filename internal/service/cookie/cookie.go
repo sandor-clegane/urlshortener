@@ -1,10 +1,11 @@
-package app
+package cookie
 
 import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"
+	"io"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -14,15 +15,15 @@ var (
 	ErrInvalidValue = errors.New("invalid cookie value")
 )
 
-type cookieService struct {
+type cookieServiceImpl struct {
 	Key []byte
 }
 
-func New(key string) *cookieService {
-	return &cookieService{Key: []byte(key)}
+func New(key string) *cookieServiceImpl {
+	return &cookieServiceImpl{Key: []byte(key)}
 }
 
-func (c *cookieService) extractValue(cookie *http.Cookie) (string, error) {
+func (c *cookieServiceImpl) ExtractValue(cookie *http.Cookie) (string, error) {
 	signedValue, err := base64.URLEncoding.DecodeString(cookie.Value)
 	if err != nil {
 		return "", err
@@ -31,7 +32,7 @@ func (c *cookieService) extractValue(cookie *http.Cookie) (string, error) {
 	return string(signedValue[sha256.Size:]), nil
 }
 
-func (c *cookieService) createAndSign(w http.ResponseWriter, r *http.Request) error {
+func (c *cookieServiceImpl) CreateAndSign(w http.ResponseWriter, r *http.Request) error {
 	cookie := http.Cookie{
 		Name:     "userID",
 		Value:    uuid.New().String(),
@@ -50,7 +51,7 @@ func (c *cookieService) createAndSign(w http.ResponseWriter, r *http.Request) er
 	return write(w, r, cookie)
 }
 
-func (c *cookieService) checkSign(r *http.Request, name string) error {
+func (c *cookieServiceImpl) CheckSign(r *http.Request, name string) error {
 	//[signature][user_id]
 	signedValue, err := read(r, name)
 	if err != nil {
@@ -93,4 +94,24 @@ func read(r *http.Request, name string) (string, error) {
 	}
 
 	return string(value), nil
+}
+
+func (c *cookieServiceImpl) Authentication(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		err := c.CheckSign(r, "userID")
+		if err == nil {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		if errors.Is(err, http.ErrNoCookie) || errors.Is(err, ErrInvalidValue) {
+			err = c.CreateAndSign(w, r)
+			if err == nil {
+				next.ServeHTTP(w, r)
+				return
+			}
+		}
+
+		io.WriteString(w, err.Error())
+	})
 }

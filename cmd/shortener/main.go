@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	h := app.NewHandler()
+	h := app.New()
 	if err := h.Start(); err != http.ErrServerClosed && err != nil {
 		log.Fatal(err)
 	}
