@@ -14,6 +14,7 @@ var _ Storage = &dbStorage{}
 type Storage interface {
 	LookUp(ctx context.Context, str string) (string, bool)
 	Insert(ctx context.Context, key, value, userID string)
+	InsertSome(ctx context.Context, expandURLwIDslice []common.PairURL, userID string) error
 	GetPairsByID(ctx context.Context, userID string) ([]common.PairURL, bool)
 }
 

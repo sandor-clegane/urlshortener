@@ -60,3 +60,38 @@ func (s *urlshortenerServiceImpl) GetAllURL(ctx context.Context, userID string) 
 
 	return res, nil
 }
+
+func (s *urlshortenerServiceImpl) ReduceSeveralURL(ctx context.Context,
+	userID string, expandURLwIDslice []common.PairURLwithIDin) ([]common.PairURLWithIDout, error) {
+	var ResponseURLwIDslice []common.PairURLWithIDout
+	var tempURLpairSlice []common.PairURL
+
+	for _, v := range expandURLwIDslice {
+		correlationID := v.CorrelationID
+		urlParsed, err := url.Parse(v.OriginalURL)
+		if err != nil {
+			return nil, err
+		}
+		shortURL, err := s.shorten(urlParsed)
+		if err != nil {
+			return nil, err
+		}
+
+		pairURL := common.PairURL{
+			ExpandURL: v.OriginalURL,
+			ShortURL:  shortURL.Path,
+		}
+
+		URLwIDout := common.PairURLWithIDout{
+			CorrelationID: correlationID,
+			ShortURL:      shortURL.String(),
+		}
+
+		ResponseURLwIDslice = append(ResponseURLwIDslice, URLwIDout)
+		tempURLpairSlice = append(tempURLpairSlice, pairURL)
+	}
+
+	s.storage.InsertSome(ctx, tempURLpairSlice, userID)
+
+	return ResponseURLwIDslice, nil
+}

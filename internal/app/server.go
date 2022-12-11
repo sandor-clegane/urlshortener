@@ -49,14 +49,16 @@ func (h *App) initHandlers() {
 	stg := storages.CreateStorage(h.Cfg)
 	h.dbh = db.NewDBHandler(h.Cfg.DatabaseDSN)
 	h.urlh = url.New(stg, h.Cfg)
-	//push middlewares
+
 	h.Use(GzipCompressHandle, GzipDecompressHandle, h.urlh.GetAuthorizationMiddleware())
-	//configuration handlers
-	h.MethodFunc("GET", "/{id}", h.urlh.ExpandURL)
+
 	h.MethodFunc("POST", "/", h.urlh.ShortenURL)
 	h.MethodFunc("POST", "/api/shorten", h.urlh.ShortenURLwJSON)
-	h.MethodFunc("GET", "/api/user/urls", h.urlh.GetAllURL)
+	h.MethodFunc("POST", "/api/shorten/batch", h.urlh.ShortenSomeURL)
+
 	h.MethodFunc("GET", "/ping", h.dbh.PingConnectionDB)
+	h.MethodFunc("GET", "/{id}", h.urlh.ExpandURL)
+	h.MethodFunc("GET", "/api/user/urls", h.urlh.GetAllURL)
 }
 
 func (h *App) Start() error {

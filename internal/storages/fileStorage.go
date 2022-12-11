@@ -6,6 +6,8 @@ import (
 	"log"
 	"os"
 	"strings"
+
+	"github.com/sandor-clegane/urlshortener/internal/common"
 )
 
 type FileStorage struct {
@@ -27,6 +29,20 @@ func (fs *FileStorage) Insert(_ context.Context, key, value, userID string) {
 	_ = fs.enc.Encode(&r)
 	fs.userToKeys[userID] = append(fs.userToKeys[userID], value)
 	fs.lock.Unlock()
+}
+
+func (fs *FileStorage) InsertSome(ctx context.Context, expandURLwIDslice []common.PairURL, userID string) error {
+	fs.lock.Lock()
+	for _, p := range expandURLwIDslice {
+		trimmedKey := strings.TrimPrefix(p.ShortURL, "/")
+		r := Record{Key: trimmedKey, Value: p.ExpandURL}
+		fs.storage[trimmedKey] = p.ExpandURL
+		_ = fs.enc.Encode(&r)
+		fs.userToKeys[userID] = append(fs.userToKeys[userID], trimmedKey)
+	}
+	fs.lock.Unlock()
+
+	return nil
 }
 
 func NewFileStorage(fileName string) *FileStorage {

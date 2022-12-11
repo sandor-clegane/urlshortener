@@ -52,6 +52,35 @@ func (d *dbStorage) Insert(ctx context.Context, urlID, expandURL, userID string)
 	}
 }
 
+func (d *dbStorage) InsertSome(ctx context.Context, expandURLwIDslice []common.PairURL, userID string) error {
+	tx, err := d.dbConnection.Begin()
+	if err != nil {
+		return err
+	}
+
+	stmt, err := tx.PrepareContext(ctx, insertURLQuery)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	for _, p := range expandURLwIDslice {
+		if _, err = stmt.Exec(p.ShortURL, p.ExpandURL, userID); err != nil {
+			if err = tx.Rollback(); err != nil {
+				log.Fatalf("update drivers: unable to rollback: %v", err)
+			}
+			return err
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		log.Fatalf("update drivers: unable to commit: %v", err)
+		return err
+	}
+
+	return nil
+}
+
 func (d *dbStorage) lookUp(ctx context.Context, urlID string) (string, error) {
 	var expandURL string
 	err := d.dbConnection.

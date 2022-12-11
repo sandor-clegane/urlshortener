@@ -7,5 +7,7 @@ type URLHandler interface {
 	ExpandURL(w http.ResponseWriter, r *http.Request)
 	ShortenURL(w http.ResponseWriter, r *http.Request)
 	ShortenURLwJSON(w http.ResponseWriter, r *http.Request)
+	ShortenSomeURL(w http.ResponseWriter, r *http.Request)
+
 	GetAuthorizationMiddleware() func(next http.Handler) http.Handler
 }

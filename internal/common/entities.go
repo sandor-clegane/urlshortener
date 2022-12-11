@@ -34,3 +34,13 @@ func (im *InMessage) UnmarshalJSON(data []byte) error {
 	im.ExpandURL = *url
 	return nil
 }
+
+type PairURLwithIDin struct {
+	CorrelationID string `json:"correlation_id"`
+	OriginalURL   string `json:"original_url"`
+}
+
+type PairURLWithIDout struct {
+	CorrelationID string `json:"correlation_id"`
+	ShortURL      string `json:"short_url"`
+}

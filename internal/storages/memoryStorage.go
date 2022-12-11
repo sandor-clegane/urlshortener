@@ -36,6 +36,18 @@ func (s *InMemoryStorage) Insert(_ context.Context, key, value, userID string) {
 	s.lock.Unlock()
 }
 
+func (s *InMemoryStorage) InsertSome(ctx context.Context, expandURLwIDslice []common.PairURL, userID string) error {
+	s.lock.Lock()
+	for _, p := range expandURLwIDslice {
+		trimmedKey := strings.TrimPrefix(p.ShortURL, "/")
+		s.storage[trimmedKey] = p.ExpandURL
+		s.userToKeys[userID] = append(s.userToKeys[userID], trimmedKey)
+	}
+	s.lock.Unlock()
+
+	return nil
+}
+
 func (s *InMemoryStorage) GetPairsByID(_ context.Context, userID string) ([]common.PairURL, bool) {
 	keys, ok := s.userToKeys[userID]
 	if !ok {

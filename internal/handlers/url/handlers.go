@@ -136,3 +136,35 @@ func (h *URLhandlerImpl) GetAllURL(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	}
 }
+
+func (h *URLhandlerImpl) ShortenSomeURL(w http.ResponseWriter, r *http.Request) {
+	authCookie, err := r.Cookie("userID")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	userID, err := h.cs.ExtractValue(authCookie)
+	if err != nil {
+		http.Error(w, "Unauthorized user", http.StatusBadRequest)
+		return
+	}
+
+	var expandURLwIDslice []common.PairURLwithIDin
+	err = json.NewDecoder(r.Body).Decode(&expandURLwIDslice)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	}
+
+	shortURLwIDslice, err := h.us.ReduceSeveralURL(r.Context(), userID, expandURLwIDslice)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	} else {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		err = json.NewEncoder(w).Encode(shortURLwIDslice)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		}
+	}
+}
