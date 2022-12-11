@@ -9,6 +9,7 @@ import (
 
 var _ Storage = &InMemoryStorage{}
 var _ Storage = &FileStorage{}
+var _ Storage = &dbStorage{}
 
 type Storage interface {
 	LookUp(ctx context.Context, str string) (string, bool)
@@ -17,9 +18,13 @@ type Storage interface {
 }
 
 func CreateStorage(cfg config.Config) Storage {
-	if cfg.FileStoragePath == "" {
-		return NewInMemoryStorage()
+	if cfg.DatabaseDSN == config.DefaultDatabaseDSN {
+		if cfg.FileStoragePath == config.DefaultFileStoragePath {
+			return NewInMemoryStorage()
+		} else {
+			return NewFileStorage(cfg.FileStoragePath)
+		}
 	} else {
-		return NewFileStorage(cfg.FileStoragePath)
+		return NewDBStorage(cfg.DatabaseDSN)
 	}
 }
