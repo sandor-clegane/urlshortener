@@ -166,7 +166,7 @@ func (h *URLhandlerImpl) ShortenSomeURL(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	}
 
-	shortURLwIDslice, err := h.us.ReduceSeveralURL(r.Context(), userID, expandURLwIDslice)
+	shortURLwIDslice, err := h.us.ShortenSomeURL(r.Context(), userID, expandURLwIDslice)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
