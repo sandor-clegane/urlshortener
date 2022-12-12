@@ -100,6 +100,7 @@ func (h *URLhandlerImpl) ShortenURLwJSON(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		var violationError *myerrors.UniqueViolation
 		if errors.As(err, &violationError) {
+			w.Header().Add("Content-Type", "application/json")
 			w.WriteHeader(http.StatusConflict)
 			json.NewEncoder(w).Encode([]byte(violationError.ExistedShortURL))
 		} else {
