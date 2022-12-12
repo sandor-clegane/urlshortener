@@ -66,11 +66,11 @@ func (s *urlshortenerServiceImpl) GetAllURL(ctx context.Context, userID string) 
 	return res, nil
 }
 
-func (s *urlshortenerServiceImpl) ReduceSeveralURL(ctx context.Context,
+func (s *urlshortenerServiceImpl) ShortenSomeURL(ctx context.Context,
 	userID string, expandURLwIDslice []common.PairURLwithCIDin) ([]common.PairURLwithCIDout, error) {
 	cap := len(expandURLwIDslice)
-	ResponseURLwIDslice := make([]common.PairURLwithCIDout, cap)
-	tempURLpairSlice := make([]common.PairURL, cap)
+	ResponseURLwIDslice := make([]common.PairURLwithCIDout, 0, cap)
+	tempURLpairSlice := make([]common.PairURL, 0, cap)
 
 	for _, v := range expandURLwIDslice {
 		correlationID := v.CorrelationID
