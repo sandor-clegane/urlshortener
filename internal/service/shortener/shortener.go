@@ -3,6 +3,7 @@ package shortener
 import (
 	"context"
 	"crypto/md5"
+	"encoding/hex"
 	"net/url"
 
 	"github.com/sandor-clegane/urlshortener/internal/common"
@@ -24,7 +25,7 @@ func New(stg storages.Storage, baseURL string) URLshortenerService {
 
 func (s *urlshortenerServiceImpl) shorten(url *url.URL) (*url.URL, error) {
 	hash := md5.Sum([]byte(url.String()))
-	return common.Join(s.baseURL, string(hash[:]))
+	return common.Join(s.baseURL, hex.EncodeToString(hash[:]))
 }
 
 func (s *urlshortenerServiceImpl) ShortenURL(ctx context.Context, userID, rawURL string) (string, error) {

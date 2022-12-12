@@ -28,7 +28,7 @@ func (fs *FileStorage) Insert(_ context.Context, key, value, userID string) erro
 	fs.lock.Lock()
 	_, isExists := fs.storage[trimmedKey]
 	if isExists {
-		return fmt.Errorf("Key %s already exists", key)
+		return fmt.Errorf("key %s already exists", key)
 	}
 	err := fs.enc.Encode(&r)
 	if err != nil {

@@ -34,7 +34,7 @@ func (s *InMemoryStorage) Insert(_ context.Context, key, value, userID string) e
 	s.lock.Lock()
 	_, isExists := s.storage[trimmedKey]
 	if isExists {
-		return fmt.Errorf("Key %s already exists", key)
+		return fmt.Errorf("key %s already exists", key)
 	}
 	s.storage[trimmedKey] = value
 	s.userToKeys[userID] = append(s.userToKeys[userID], trimmedKey)
