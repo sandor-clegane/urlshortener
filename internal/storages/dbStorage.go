@@ -3,6 +3,7 @@ package storages
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"log"
 
 	"github.com/sandor-clegane/urlshortener/internal/common"
@@ -11,7 +12,7 @@ import (
 const (
 	initQuery = "CREATE TABLE IF NOT EXISTS urls " +
 		"(id varchar(255) PRIMARY KEY, " +
-		"expand_url varchar(255), " +
+		"expand_url varchar(255) UNIQUE, " +
 		"user_id varchar(255))"
 	getAllURLQuery = "SELECT id, expand_url " +
 		"FROM urls " +
@@ -20,6 +21,9 @@ const (
 		"WHERE id=$1"
 	insertURLQuery = "INSERT INTO urls (id, expand_url, user_id) " +
 		"VALUES ($1, $2, $3)"
+	insertURLQueryWithConstraint = "INSERT INTO urls (id, expand_url, user_id) " +
+		"VALUES ($1, $2, $3) " +
+		"ON CONFLICT DO NOTHING"
 )
 
 type dbStorage struct {
@@ -44,12 +48,20 @@ func connect(dbAddress string) *sql.DB {
 	return db
 }
 
-func (d *dbStorage) Insert(ctx context.Context, urlID, expandURL, userID string) {
-	_, err := d.dbConnection.
-		ExecContext(ctx, insertURLQuery, urlID, expandURL, userID)
+func (d *dbStorage) Insert(ctx context.Context, urlID, expandURL, userID string) error {
+	res, err := d.dbConnection.
+		ExecContext(ctx, insertURLQueryWithConstraint, urlID, expandURL, userID)
 	if err != nil {
 		log.Fatal(err)
 	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if rows != 1 {
+		return fmt.Errorf("URL %s already exists", expandURL)
+	}
+	return nil
 }
 
 func (d *dbStorage) InsertSome(ctx context.Context, expandURLwIDslice []common.PairURL, userID string) error {
@@ -81,7 +93,7 @@ func (d *dbStorage) InsertSome(ctx context.Context, expandURLwIDslice []common.P
 	return nil
 }
 
-func (d *dbStorage) lookUp(ctx context.Context, urlID string) (string, error) {
+func (d *dbStorage) LookUp(ctx context.Context, urlID string) (string, error) {
 	var expandURL string
 	err := d.dbConnection.
 		QueryRowContext(ctx, getExpandURLQuery, urlID).
@@ -92,20 +104,12 @@ func (d *dbStorage) lookUp(ctx context.Context, urlID string) (string, error) {
 	return expandURL, nil
 }
 
-func (d *dbStorage) LookUp(ctx context.Context, urlID string) (string, bool) {
-	str, err := d.lookUp(ctx, urlID)
-	if err != nil {
-		return "", false
-	}
-	return str, true
-}
-
-func (d *dbStorage) GetPairsByID(ctx context.Context, userID string) ([]common.PairURL, bool) {
+func (d *dbStorage) GetPairsByID(ctx context.Context, userID string) ([]common.PairURL, error) {
 	pairs := make([]common.PairURL, 0)
 
 	rows, err := d.dbConnection.QueryContext(ctx, getAllURLQuery, userID)
 	if err != nil {
-		return nil, false
+		return nil, err
 	}
 	defer rows.Close()
 
@@ -113,14 +117,14 @@ func (d *dbStorage) GetPairsByID(ctx context.Context, userID string) ([]common.P
 	for rows.Next() {
 		err = rows.Scan(&p.ShortURL, &p.ExpandURL)
 		if err != nil {
-			return nil, false
+			return nil, err
 		}
 		pairs = append(pairs, p)
 	}
 
 	err = rows.Err()
 	if err != nil {
-		return nil, false
+		return nil, err
 	}
-	return pairs, true
+	return pairs, nil
 }

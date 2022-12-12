@@ -2,11 +2,11 @@ package shortener
 
 import (
 	"context"
-	"fmt"
+	"crypto/md5"
 	"net/url"
 
-	"github.com/google/uuid"
 	"github.com/sandor-clegane/urlshortener/internal/common"
+	"github.com/sandor-clegane/urlshortener/internal/common/myerrors"
 	"github.com/sandor-clegane/urlshortener/internal/storages"
 )
 
@@ -22,8 +22,9 @@ func New(stg storages.Storage, baseURL string) URLshortenerService {
 	}
 }
 
-func (s *urlshortenerServiceImpl) shorten(_ *url.URL) (*url.URL, error) {
-	return common.Join(s.baseURL, uuid.NewString())
+func (s *urlshortenerServiceImpl) shorten(url *url.URL) (*url.URL, error) {
+	hash := md5.Sum([]byte(url.String()))
+	return common.Join(s.baseURL, string(hash[:]))
 }
 
 func (s *urlshortenerServiceImpl) ShortenURL(ctx context.Context, userID, rawURL string) (string, error) {
@@ -35,23 +36,26 @@ func (s *urlshortenerServiceImpl) ShortenURL(ctx context.Context, userID, rawURL
 	if err != nil {
 		return "", err
 	}
-	s.storage.Insert(ctx, shortURL.Path, rawURL, userID)
+	err = s.storage.Insert(ctx, shortURL.Path, rawURL, userID)
+	if err != nil {
+		return "", myerrors.NewUniqueViolation(shortURL.String(), err)
+	}
 
 	return shortURL.String(), nil
 }
 
 func (s *urlshortenerServiceImpl) ExpandURL(ctx context.Context, shortURL string) (string, error) {
-	res, ok := s.storage.LookUp(ctx, shortURL)
-	if !ok {
-		return "", fmt.Errorf("URL found")
+	res, err := s.storage.LookUp(ctx, shortURL)
+	if err != nil {
+		return "", err
 	}
 	return res, nil
 }
 
 func (s *urlshortenerServiceImpl) GetAllURL(ctx context.Context, userID string) ([]common.PairURL, error) {
-	res, ok := s.storage.GetPairsByID(ctx, userID)
-	if !ok {
-		return nil, fmt.Errorf("user with id %s didn`t shorten any URL", userID)
+	res, err := s.storage.GetPairsByID(ctx, userID)
+	if err != nil {
+		return nil, err
 	}
 	for i := 0; i < len(res); i++ {
 		shortWithBase, _ := common.Join(s.baseURL, res[i].ShortURL)
@@ -62,9 +66,10 @@ func (s *urlshortenerServiceImpl) GetAllURL(ctx context.Context, userID string) 
 }
 
 func (s *urlshortenerServiceImpl) ReduceSeveralURL(ctx context.Context,
-	userID string, expandURLwIDslice []common.PairURLwithIDin) ([]common.PairURLWithIDout, error) {
-	var ResponseURLwIDslice []common.PairURLWithIDout
-	var tempURLpairSlice []common.PairURL
+	userID string, expandURLwIDslice []common.PairURLwithCIDin) ([]common.PairURLwithCIDout, error) {
+	cap := len(expandURLwIDslice)
+	ResponseURLwIDslice := make([]common.PairURLwithCIDout, cap)
+	tempURLpairSlice := make([]common.PairURL, cap)
 
 	for _, v := range expandURLwIDslice {
 		correlationID := v.CorrelationID
@@ -82,12 +87,12 @@ func (s *urlshortenerServiceImpl) ReduceSeveralURL(ctx context.Context,
 			ShortURL:  shortURL.Path,
 		}
 
-		URLwIDout := common.PairURLWithIDout{
+		URLwCIDout := common.PairURLwithCIDout{
 			CorrelationID: correlationID,
 			ShortURL:      shortURL.String(),
 		}
 
-		ResponseURLwIDslice = append(ResponseURLwIDslice, URLwIDout)
+		ResponseURLwIDslice = append(ResponseURLwIDslice, URLwCIDout)
 		tempURLpairSlice = append(tempURLpairSlice, pairURL)
 	}
 

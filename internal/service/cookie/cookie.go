@@ -28,7 +28,6 @@ func (c *cookieServiceImpl) ExtractValue(cookie *http.Cookie) (string, error) {
 	if err != nil {
 		return "", err
 	}
-
 	return string(signedValue[sha256.Size:]), nil
 }
 
@@ -46,54 +45,43 @@ func (c *cookieServiceImpl) CreateAndSign(w http.ResponseWriter, r *http.Request
 	signature := mac.Sum(nil)
 
 	//value structure is fixed :[signature][user_id]
-	cookie.Value = string(signature) + cookie.Value
+	cookie.Value = base64.URLEncoding.
+		EncodeToString([]byte(string(signature) + cookie.Value))
+	http.SetCookie(w, &cookie)
+	r.AddCookie(&cookie)
 
-	return write(w, r, cookie)
+	return nil
 }
 
 func (c *cookieServiceImpl) CheckSign(r *http.Request, name string) error {
 	//[signature][user_id]
-	signedValue, err := read(r, name)
+	//Get and decode value from cookie
+	cookie, err := r.Cookie(name)
 	if err != nil {
 		return err
+	}
+	signedValue, err := base64.URLEncoding.DecodeString(cookie.Value)
+	if err != nil {
+		return ErrInvalidValue
 	}
 	if len(signedValue) < sha256.Size {
 		return ErrInvalidValue
 	}
 
+	//compute expected signature value
 	signature := signedValue[:sha256.Size]
 	value := signedValue[sha256.Size:]
+
 	mac := hmac.New(sha256.New, c.Key)
 	mac.Write([]byte(name))
 	mac.Write([]byte(value))
 	expectedSignature := mac.Sum(nil)
 
-	if !hmac.Equal([]byte(signature), expectedSignature) {
+	if !hmac.Equal(signature, expectedSignature) {
 		return ErrInvalidValue
 	}
 
 	return nil
-}
-
-func write(w http.ResponseWriter, r *http.Request, cookie http.Cookie) error {
-	cookie.Value = base64.URLEncoding.EncodeToString([]byte(cookie.Value))
-	http.SetCookie(w, &cookie)
-	r.AddCookie(&cookie)
-	return nil
-}
-
-func read(r *http.Request, name string) (string, error) {
-	cookie, err := r.Cookie(name)
-	if err != nil {
-		return "", err
-	}
-
-	value, err := base64.URLEncoding.DecodeString(cookie.Value)
-	if err != nil {
-		return "", ErrInvalidValue
-	}
-
-	return string(value), nil
 }
 
 func (c *cookieServiceImpl) Authentication(next http.Handler) http.Handler {

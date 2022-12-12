@@ -12,10 +12,10 @@ var _ Storage = &FileStorage{}
 var _ Storage = &dbStorage{}
 
 type Storage interface {
-	LookUp(ctx context.Context, str string) (string, bool)
-	Insert(ctx context.Context, key, value, userID string)
+	LookUp(ctx context.Context, str string) (string, error)
+	Insert(ctx context.Context, key, value, userID string) error
 	InsertSome(ctx context.Context, expandURLwIDslice []common.PairURL, userID string) error
-	GetPairsByID(ctx context.Context, userID string) ([]common.PairURL, bool)
+	GetPairsByID(ctx context.Context, userID string) ([]common.PairURL, error)
 }
 
 func CreateStorage(cfg config.Config) Storage {

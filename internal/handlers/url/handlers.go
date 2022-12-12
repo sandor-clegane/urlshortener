@@ -2,11 +2,13 @@ package url
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 
 	_ "github.com/lib/pq"
 	"github.com/sandor-clegane/urlshortener/internal/common"
+	"github.com/sandor-clegane/urlshortener/internal/common/myerrors"
 	"github.com/sandor-clegane/urlshortener/internal/config"
 	"github.com/sandor-clegane/urlshortener/internal/service/cookie"
 	"github.com/sandor-clegane/urlshortener/internal/service/shortener"
@@ -34,7 +36,7 @@ func (h *URLhandlerImpl) GetAuthorizationMiddleware() func(next http.Handler) ht
 func (h *URLhandlerImpl) ExpandURL(w http.ResponseWriter, r *http.Request) {
 	expandURL, err := h.us.ExpandURL(r.Context(), r.URL.Path)
 	if err != nil {
-		http.Error(w, "Passed short url not found", http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	w.Header().Add("Location", expandURL)
@@ -51,18 +53,25 @@ func (h *URLhandlerImpl) ShortenURL(w http.ResponseWriter, r *http.Request) {
 	}
 	userID, err := h.cs.ExtractValue(authCookie)
 	if err != nil {
-		http.Error(w, "Unauthorized user", http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-
 	rawurl, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-
-	short, _ := h.us.ShortenURL(r.Context(), userID, string(rawurl))
-
+	short, err := h.us.ShortenURL(r.Context(), userID, string(rawurl))
+	if err != nil {
+		var violationError *myerrors.UniqueViolation
+		if errors.As(err, &violationError) {
+			w.WriteHeader(http.StatusConflict)
+			w.Write([]byte(violationError.ExistedShortURL))
+		} else {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		}
+		return
+	}
 	w.WriteHeader(http.StatusCreated)
 	w.Write([]byte(short))
 }
@@ -78,28 +87,31 @@ func (h *URLhandlerImpl) ShortenURLwJSON(w http.ResponseWriter, r *http.Request)
 	}
 	userID, err := h.cs.ExtractValue(authCookie)
 	if err != nil {
-		http.Error(w, "Unauthorized user", http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-
 	inData := common.InMessage{}
 	err = json.NewDecoder(r.Body).Decode(&inData)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-
 	short, err := h.us.ShortenURL(r.Context(), userID, inData.ExpandURL.String())
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		var violationError *myerrors.UniqueViolation
+		if errors.As(err, &violationError) {
+			w.WriteHeader(http.StatusConflict)
+			json.NewEncoder(w).Encode([]byte(violationError.ExistedShortURL))
+		} else {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		}
 		return
 	}
-
 	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 
 	outData := common.OutMessage{ShortURL: short}
-	_ = json.NewEncoder(w).Encode(outData)
+	json.NewEncoder(w).Encode(outData)
 }
 
 //GetAllURL Иметь хендлер GET /api/user/urls, который сможет вернуть
@@ -120,13 +132,12 @@ func (h *URLhandlerImpl) GetAllURL(w http.ResponseWriter, r *http.Request) {
 	}
 	userID, err := h.cs.ExtractValue(authCookie)
 	if err != nil {
-		http.Error(w, "Unauthorized user", http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-
 	listOfURL, err := h.us.GetAllURL(r.Context(), userID)
 	if err != nil {
-		http.Error(w, "User didn`t shorten any URL", http.StatusNoContent)
+		http.Error(w, err.Error(), http.StatusNoContent)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -145,11 +156,11 @@ func (h *URLhandlerImpl) ShortenSomeURL(w http.ResponseWriter, r *http.Request) 
 	}
 	userID, err := h.cs.ExtractValue(authCookie)
 	if err != nil {
-		http.Error(w, "Unauthorized user", http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	var expandURLwIDslice []common.PairURLwithIDin
+	var expandURLwIDslice []common.PairURLwithCIDin
 	err = json.NewDecoder(r.Body).Decode(&expandURLwIDslice)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)

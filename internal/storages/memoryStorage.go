@@ -2,6 +2,7 @@ package storages
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 
@@ -14,7 +15,7 @@ type InMemoryStorage struct {
 	lock       sync.RWMutex
 }
 
-func (s *InMemoryStorage) LookUp(_ context.Context, str string) (string, bool) {
+func (s *InMemoryStorage) LookUp(_ context.Context, str string) (string, error) {
 	trimmedStr := strings.TrimPrefix(str, "/")
 
 	s.lock.RLock()
@@ -22,21 +23,27 @@ func (s *InMemoryStorage) LookUp(_ context.Context, str string) (string, bool) {
 	s.lock.RUnlock()
 
 	if !ok {
-		return "", ok
+		return "", fmt.Errorf("no %s short URL in database", str)
 	}
-	return res, ok
+	return res, nil
 }
 
-func (s *InMemoryStorage) Insert(_ context.Context, key, value, userID string) {
+func (s *InMemoryStorage) Insert(_ context.Context, key, value, userID string) error {
 	trimmedKey := strings.TrimPrefix(key, "/")
 
 	s.lock.Lock()
+	_, isExists := s.storage[trimmedKey]
+	if isExists {
+		return fmt.Errorf("Key %s already exists", key)
+	}
 	s.storage[trimmedKey] = value
 	s.userToKeys[userID] = append(s.userToKeys[userID], trimmedKey)
 	s.lock.Unlock()
+
+	return nil
 }
 
-func (s *InMemoryStorage) InsertSome(ctx context.Context, expandURLwIDslice []common.PairURL, userID string) error {
+func (s *InMemoryStorage) InsertSome(_ context.Context, expandURLwIDslice []common.PairURL, userID string) error {
 	s.lock.Lock()
 	for _, p := range expandURLwIDslice {
 		trimmedKey := strings.TrimPrefix(p.ShortURL, "/")
@@ -48,10 +55,10 @@ func (s *InMemoryStorage) InsertSome(ctx context.Context, expandURLwIDslice []co
 	return nil
 }
 
-func (s *InMemoryStorage) GetPairsByID(_ context.Context, userID string) ([]common.PairURL, bool) {
+func (s *InMemoryStorage) GetPairsByID(_ context.Context, userID string) ([]common.PairURL, error) {
 	keys, ok := s.userToKeys[userID]
 	if !ok {
-		return nil, ok
+		return nil, fmt.Errorf("user with ID %s did not shorten any URL", userID)
 	}
 	result := make([]common.PairURL, 0, len(keys))
 
@@ -62,7 +69,7 @@ func (s *InMemoryStorage) GetPairsByID(_ context.Context, userID string) ([]comm
 		})
 	}
 
-	return result, true
+	return result, nil
 }
 
 func NewInMemoryStorage() *InMemoryStorage {
