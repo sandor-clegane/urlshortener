@@ -46,12 +46,12 @@ func TestLookUp(t *testing.T) {
 				s.Insert(context.Background(), k, v, "some_user")
 			}
 
-			gotValue, ok := s.LookUp(context.Background(), tt.key)
+			gotValue, err := s.LookUp(context.Background(), tt.key)
 			if tt.want.expectFound {
-				assert.True(t, ok)
+				assert.NoError(t, err)
 				assert.Equal(t, tt.want.value, gotValue)
 			} else {
-				assert.False(t, ok)
+				assert.Error(t, err)
 			}
 		})
 	}
@@ -87,7 +87,3 @@ func TestInsert(t *testing.T) {
 		})
 	}
 }
-
-
-
-
