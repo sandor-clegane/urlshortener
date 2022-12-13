@@ -9,7 +9,7 @@ import (
 
 func main() {
 	h := app.New()
-	if err := h.Start(); err != http.ErrServerClosed && err != nil {
+	if err := h.Run(); err != http.ErrServerClosed && err != nil {
 		log.Fatal(err)
 	}
 }

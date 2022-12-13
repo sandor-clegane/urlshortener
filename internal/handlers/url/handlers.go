@@ -62,18 +62,18 @@ func (h *URLhandlerImpl) ShortenURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	short, err := h.us.ShortenURL(r.Context(), userID, string(rawurl))
-	if err != nil {
-		var violationError *myerrors.UniqueViolation
-		if errors.As(err, &violationError) {
-			w.WriteHeader(http.StatusConflict)
-			w.Write([]byte(violationError.ExistedShortURL))
-		} else {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-		}
+	if err == nil {
+		w.WriteHeader(http.StatusCreated)
+		w.Write([]byte(short))
 		return
 	}
-	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte(short))
+	var violationError *myerrors.UniqueViolation
+	if errors.As(err, &violationError) {
+		w.WriteHeader(http.StatusConflict)
+		w.Write([]byte(violationError.ExistedShortURL))
+	} else {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	}
 }
 
 //ShortenURLwJSON Добавьте в сервер новый эндпоинт POST /api/shorten,
@@ -97,23 +97,22 @@ func (h *URLhandlerImpl) ShortenURLwJSON(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	short, err := h.us.ShortenURL(r.Context(), userID, inData.ExpandURL.String())
-	if err != nil {
-		var violationError *myerrors.UniqueViolation
-		if errors.As(err, &violationError) {
-			w.Header().Add("Content-Type", "application/json")
-			w.WriteHeader(http.StatusConflict)
-			outData := common.OutMessage{ShortURL: violationError.ExistedShortURL}
-			json.NewEncoder(w).Encode(outData)
-		} else {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-		}
+	if err == nil {
+		w.Header().Add("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		outData := common.OutMessage{ShortURL: short}
+		json.NewEncoder(w).Encode(outData)
 		return
 	}
-	w.Header().Add("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-
-	outData := common.OutMessage{ShortURL: short}
-	json.NewEncoder(w).Encode(outData)
+	var violationError *myerrors.UniqueViolation
+	if errors.As(err, &violationError) {
+		w.Header().Add("Content-Type", "application/json")
+		w.WriteHeader(http.StatusConflict)
+		outData := common.OutMessage{ShortURL: violationError.ExistedShortURL}
+		json.NewEncoder(w).Encode(outData)
+	} else {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	}
 }
 
 //GetAllURL Иметь хендлер GET /api/user/urls, который сможет вернуть
@@ -141,13 +140,13 @@ func (h *URLhandlerImpl) GetAllURL(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNoContent)
 	}
-
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
 	err = json.NewEncoder(w).Encode(listOfURL)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
+	w.WriteHeader(http.StatusOK)
 }
 
 func (h *URLhandlerImpl) ShortenSomeURL(w http.ResponseWriter, r *http.Request) {
@@ -166,6 +165,7 @@ func (h *URLhandlerImpl) ShortenSomeURL(w http.ResponseWriter, r *http.Request) 
 	err = json.NewDecoder(r.Body).Decode(&expandURLwIDslice)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 
 	shortURLwIDslice, err := h.us.ShortenSomeURL(r.Context(), userID, expandURLwIDslice)
@@ -174,9 +174,10 @@ func (h *URLhandlerImpl) ShortenSomeURL(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
 	err = json.NewEncoder(w).Encode(shortURLwIDslice)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
+	w.WriteHeader(http.StatusCreated)
 }

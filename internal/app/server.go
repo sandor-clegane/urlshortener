@@ -45,22 +45,21 @@ func (h *App) getConfig() {
 
 //TODO паттерны стоит вынести в константы
 func (h *App) initHandlers() {
-	//init storage
 	stg := storages.CreateStorage(h.Cfg)
 	h.dbh = db.NewDBHandler(h.Cfg.DatabaseDSN)
 	h.urlh = url.New(stg, h.Cfg)
 
 	h.Use(GzipCompressHandle, GzipDecompressHandle, h.urlh.GetAuthorizationMiddleware())
 
-	h.MethodFunc("POST", "/", h.urlh.ShortenURL)
-	h.MethodFunc("POST", "/api/shorten", h.urlh.ShortenURLwJSON)
-	h.MethodFunc("POST", "/api/shorten/batch", h.urlh.ShortenSomeURL)
+	h.Post("/", h.urlh.ShortenURL)
+	h.Post("/api/shorten", h.urlh.ShortenURLwJSON)
+	h.Post("/api/shorten/batch", h.urlh.ShortenSomeURL)
 
-	h.MethodFunc("GET", "/ping", h.dbh.PingConnectionDB)
-	h.MethodFunc("GET", "/{id}", h.urlh.ExpandURL)
-	h.MethodFunc("GET", "/api/user/urls", h.urlh.GetAllURL)
+	h.Get("/ping", h.dbh.PingConnectionDB)
+	h.Get("/{id}", h.urlh.ExpandURL)
+	h.Get("/api/user/urls", h.urlh.GetAllURL)
 }
 
-func (h *App) Start() error {
+func (h *App) Run() error {
 	return http.ListenAndServe(h.Cfg.ServerAddress, h)
 }

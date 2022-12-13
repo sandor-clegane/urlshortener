@@ -26,6 +26,7 @@ func (fs *FileStorage) Insert(_ context.Context, key, value, userID string) erro
 	r := record{Key: key, Value: value}
 
 	fs.lock.Lock()
+	defer fs.lock.Unlock()
 	_, isExists := fs.storage[trimmedKey]
 	if isExists {
 		return fmt.Errorf("key %s already exists", key)
@@ -35,16 +36,16 @@ func (fs *FileStorage) Insert(_ context.Context, key, value, userID string) erro
 		return err
 	}
 	fs.storage[trimmedKey] = value
-	fs.userToKeys[userID] = append(fs.userToKeys[userID], value)
-	fs.lock.Unlock()
+	fs.userToKeys[userID] = append(fs.userToKeys[userID], trimmedKey)
 
 	return nil
 }
 
-func (fs *FileStorage) InsertSome(ctx context.Context, expandURLwIDslice []common.PairURL, userID string) error {
+func (fs *FileStorage) InsertSome(_ context.Context, expandURLwIDslice []common.PairURL, userID string) error {
 	var r record
 
 	fs.lock.Lock()
+	defer fs.lock.Unlock()
 	for _, p := range expandURLwIDslice {
 		trimmedKey := strings.TrimPrefix(p.ShortURL, "/")
 		r = record{Key: trimmedKey, Value: p.ExpandURL}
@@ -55,8 +56,6 @@ func (fs *FileStorage) InsertSome(ctx context.Context, expandURLwIDslice []commo
 		}
 		fs.userToKeys[userID] = append(fs.userToKeys[userID], trimmedKey)
 	}
-	fs.lock.Unlock()
-
 	return nil
 }
 

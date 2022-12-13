@@ -52,11 +52,11 @@ func (d *dbStorage) Insert(ctx context.Context, urlID, expandURL, userID string)
 	res, err := d.dbConnection.
 		ExecContext(ctx, insertURLQueryWithConstraint, urlID, expandURL, userID)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	rows, err := res.RowsAffected()
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	if rows != 1 {
 		return fmt.Errorf("URL %s already exists", expandURL)
@@ -79,14 +79,15 @@ func (d *dbStorage) InsertSome(ctx context.Context, expandURLwIDslice []common.P
 	for _, p := range expandURLwIDslice {
 		if _, err = stmt.Exec(p.ShortURL, p.ExpandURL, userID); err != nil {
 			if err = tx.Rollback(); err != nil {
-				log.Fatalf("update drivers: unable to rollback: %v", err)
+				log.Printf("update drivers: unable to rollback: %v", err)
+				return err
 			}
 			return err
 		}
 	}
 
-	if err := tx.Commit(); err != nil {
-		log.Fatalf("update drivers: unable to commit: %v", err)
+	if err = tx.Commit(); err != nil {
+		log.Printf("update drivers: unable to commit: %v", err)
 		return err
 	}
 

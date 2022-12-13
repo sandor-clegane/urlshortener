@@ -19,8 +19,8 @@ func (s *InMemoryStorage) LookUp(_ context.Context, str string) (string, error) 
 	trimmedStr := strings.TrimPrefix(str, "/")
 
 	s.lock.RLock()
+	defer s.lock.RUnlock()
 	res, ok := s.storage[trimmedStr]
-	s.lock.RUnlock()
 
 	if !ok {
 		return "", fmt.Errorf("no %s short URL in database", str)
@@ -32,42 +32,47 @@ func (s *InMemoryStorage) Insert(_ context.Context, key, value, userID string) e
 	trimmedKey := strings.TrimPrefix(key, "/")
 
 	s.lock.Lock()
+	defer s.lock.Unlock()
 	_, isExists := s.storage[trimmedKey]
 	if isExists {
 		return fmt.Errorf("key %s already exists", key)
 	}
 	s.storage[trimmedKey] = value
 	s.userToKeys[userID] = append(s.userToKeys[userID], trimmedKey)
-	s.lock.Unlock()
 
 	return nil
 }
 
 func (s *InMemoryStorage) InsertSome(_ context.Context, expandURLwIDslice []common.PairURL, userID string) error {
 	s.lock.Lock()
+	defer s.lock.Unlock()
 	for _, p := range expandURLwIDslice {
 		trimmedKey := strings.TrimPrefix(p.ShortURL, "/")
 		s.storage[trimmedKey] = p.ExpandURL
 		s.userToKeys[userID] = append(s.userToKeys[userID], trimmedKey)
 	}
-	s.lock.Unlock()
 
 	return nil
 }
 
 func (s *InMemoryStorage) GetPairsByID(_ context.Context, userID string) ([]common.PairURL, error) {
+	s.lock.RLock()
 	keys, ok := s.userToKeys[userID]
+	s.lock.RUnlock()
+
 	if !ok {
 		return nil, fmt.Errorf("user with ID %s did not shorten any URL", userID)
 	}
 	result := make([]common.PairURL, 0, len(keys))
 
+	s.lock.RLock()
 	for _, key := range keys {
 		result = append(result, common.PairURL{
 			ExpandURL: s.storage[key],
 			ShortURL:  key,
 		})
 	}
+	s.lock.RUnlock()
 
 	return result, nil
 }

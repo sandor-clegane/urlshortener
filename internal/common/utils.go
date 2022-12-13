@@ -1,7 +1,6 @@
 package common
 
 import (
-	"fmt"
 	"net/url"
 	"path"
 )
@@ -9,7 +8,7 @@ import (
 func Join(basePath string, paths ...string) (*url.URL, error) {
 	u, err := url.Parse(basePath)
 	if err != nil {
-		return nil, fmt.Errorf("invalid url")
+		return nil, err
 	}
 
 	p2 := append([]string{u.Path}, paths...)
