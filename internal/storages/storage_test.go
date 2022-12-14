@@ -58,17 +58,21 @@ func TestLookUp(t *testing.T) {
 }
 
 func TestInsert(t *testing.T) {
+	type pair struct {
+		first  string
+		second string
+	}
 	type want struct {
 		values []string
 	}
 	tests := []struct {
 		name    string
-		storage map[string]string
+		storage []pair
 		want    want
 	}{
 		{
 			name:    "simple test 1",
-			storage: map[string]string{"k1": "v1", "k2": "v2"},
+			storage: []pair{{"k1", "v1"}, {"k2", "v2"}},
 			want: want{
 				values: []string{"v1", "v2"},
 			},
@@ -78,11 +82,9 @@ func TestInsert(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s, _ := NewInMemoryStorage()
 
-			i := 0
-			for k, v := range tt.storage {
-				s.Insert(context.Background(), k, v, "some_user")
-				assert.Equal(t, tt.want.values[i], s.storage[k])
-				i++
+			for i, p := range tt.storage {
+				s.Insert(context.Background(), p.first, p.second, "some_user")
+				assert.Equal(t, tt.want.values[i], s.storage[p.first])
 			}
 		})
 	}
