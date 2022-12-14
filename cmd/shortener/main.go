@@ -8,8 +8,11 @@ import (
 )
 
 func main() {
-	h := app.New()
-	if err := h.Run(); err != http.ErrServerClosed && err != nil {
+	h, err := app.New()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err = h.Run(); err != http.ErrServerClosed && err != nil {
 		log.Fatal(err)
 	}
 }

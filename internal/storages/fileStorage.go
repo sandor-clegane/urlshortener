@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"strings"
 
@@ -59,14 +58,18 @@ func (fs *FileStorage) InsertSome(_ context.Context, expandURLwIDslice []common.
 	return nil
 }
 
-func NewFileStorage(fileName string) *FileStorage {
+func NewFileStorage(fileName string) (*FileStorage, error) {
 	file, err := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE, 0755)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
+	ims, err := NewInMemoryStorage()
+	if err != nil {
+		return nil, err
+	}
 	fs := &FileStorage{
-		InMemoryStorage: NewInMemoryStorage(),
+		InMemoryStorage: ims,
 		enc:             json.NewEncoder(file),
 	}
 
@@ -76,10 +79,10 @@ func NewFileStorage(fileName string) *FileStorage {
 	for dec.More() {
 		err = dec.Decode(&r)
 		if err != nil {
-			log.Fatal(err)
+			return nil, err
 		}
 		fs.storage[r.Key] = r.Value
 	}
 
-	return fs
+	return fs, nil
 }

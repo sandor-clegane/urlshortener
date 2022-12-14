@@ -2,7 +2,6 @@ package db
 
 import (
 	"database/sql"
-	"log"
 	"net/http"
 
 	_ "github.com/lib/pq"
@@ -12,18 +11,20 @@ type dbHandlerImpl struct {
 	DB *sql.DB
 }
 
-func NewDBHandler(address string) DBHandler {
-	return &dbHandlerImpl{
-		DB: connect(address),
+func NewDBHandler(address string) (DBHandler, error) {
+	connection, err := connect(address)
+	if err != nil {
+		return nil, err
 	}
+	return &dbHandlerImpl{DB: connection}, nil
 }
 
-func connect(dbAddress string) *sql.DB {
+func connect(dbAddress string) (*sql.DB, error) {
 	db, err := sql.Open("postgres", dbAddress)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
-	return db
+	return db, nil
 }
 
 // PingConnectionDB Добавьте в сервис хендлер GET /ping, который при запросе проверяет соединение с базой данных.

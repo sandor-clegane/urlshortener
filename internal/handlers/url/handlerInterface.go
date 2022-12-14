@@ -2,6 +2,8 @@ package url
 
 import "net/http"
 
+var _ URLHandler = &URLhandlerImpl{}
+
 type URLHandler interface {
 	GetAllURL(w http.ResponseWriter, r *http.Request)
 	ExpandURL(w http.ResponseWriter, r *http.Request)

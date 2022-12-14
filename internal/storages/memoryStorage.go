@@ -77,9 +77,9 @@ func (s *InMemoryStorage) GetPairsByID(_ context.Context, userID string) ([]comm
 	return result, nil
 }
 
-func NewInMemoryStorage() *InMemoryStorage {
+func NewInMemoryStorage() (*InMemoryStorage, error) {
 	return &InMemoryStorage{
 		storage:    make(map[string]string),
 		userToKeys: make(map[string][]string),
-	}
+	}, nil
 }

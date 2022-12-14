@@ -30,22 +30,24 @@ type dbStorage struct {
 	dbConnection *sql.DB
 }
 
-func NewDBStorage(dbAddress string) Storage {
-	return &dbStorage{
-		dbConnection: connect(dbAddress),
+func NewDBStorage(dbAddress string) (*dbStorage, error) {
+	connection, err := connect(dbAddress)
+	if err != nil {
+		return nil, err
 	}
+	return &dbStorage{dbConnection: connection}, nil
 }
 
-func connect(dbAddress string) *sql.DB {
+func connect(dbAddress string) (*sql.DB, error) {
 	db, err := sql.Open("postgres", dbAddress)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 	_, err = db.Exec(initQuery)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
-	return db
+	return db, nil
 }
 
 func (d *dbStorage) Insert(ctx context.Context, urlID, expandURL, userID string) error {

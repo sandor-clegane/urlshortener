@@ -18,7 +18,7 @@ type Storage interface {
 	GetPairsByID(ctx context.Context, userID string) ([]common.PairURL, error)
 }
 
-func CreateStorage(cfg config.Config) Storage {
+func CreateStorage(cfg config.Config) (Storage, error) {
 	if cfg.DatabaseDSN == config.DefaultDatabaseDSN {
 		if cfg.FileStoragePath == config.DefaultFileStoragePath {
 			return NewInMemoryStorage()

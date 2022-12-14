@@ -1,7 +1,6 @@
 package app
 
 import (
-	"log"
 	"net/http"
 
 	"github.com/caarlos0/env/v6"
@@ -19,34 +18,48 @@ type App struct {
 	urlh url.URLHandler
 }
 
-func New() *App {
+func New() (*App, error) {
 	h := &App{
 		Mux: chi.NewRouter(),
 	}
 
-	h.getConfig()
-	h.initHandlers()
+	err := h.initConfig()
+	if err != nil {
+		return nil, err
+	}
 
-	return h
+	err = h.initHandlers()
+	if err != nil {
+		return nil, err
+	}
+
+	return h, nil
 }
 
-func (h *App) getConfig() {
+func (h *App) initConfig() error {
 	var c2 config.Config
 	//parsing env config
 	err := env.Parse(&h.Cfg)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	//parsing command line config
 	c2.ParseArgsCMD()
 	//applying config
 	h.Cfg.ApplyConfig(c2)
+	return nil
 }
 
 //TODO паттерны стоит вынести в константы
-func (h *App) initHandlers() {
-	stg := storages.CreateStorage(h.Cfg)
-	h.dbh = db.NewDBHandler(h.Cfg.DatabaseDSN)
+func (h *App) initHandlers() error {
+	stg, err := storages.CreateStorage(h.Cfg)
+	if err != nil {
+		return err
+	}
+	h.dbh, err = db.NewDBHandler(h.Cfg.DatabaseDSN)
+	if err != nil {
+		return err
+	}
 	h.urlh = url.New(stg, h.Cfg)
 
 	h.Use(GzipCompressHandle, GzipDecompressHandle, h.urlh.GetAuthorizationMiddleware())
@@ -58,6 +71,7 @@ func (h *App) initHandlers() {
 	h.Get("/ping", h.dbh.PingConnectionDB)
 	h.Get("/{id}", h.urlh.ExpandURL)
 	h.Get("/api/user/urls", h.urlh.GetAllURL)
+	return nil
 }
 
 func (h *App) Run() error {
