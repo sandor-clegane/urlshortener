@@ -8,9 +8,11 @@ import (
 )
 
 func main() {
-	h := app.NewHandler()
-	if err := h.Start(); err != http.ErrServerClosed && err != nil {
+	h, err := app.New()
+	if err != nil {
 		log.Fatal(err)
 	}
-
+	if err = h.Run(); err != http.ErrServerClosed && err != nil {
+		log.Fatal(err)
+	}
 }
