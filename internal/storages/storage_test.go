@@ -40,7 +40,7 @@ func TestLookUp(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := NewInMemoryStorage()
+			s, _ := NewInMemoryStorage()
 
 			for k, v := range tt.storage {
 				s.Insert(context.Background(), k, v, "some_user")
@@ -76,7 +76,7 @@ func TestInsert(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := NewInMemoryStorage()
+			s, _ := NewInMemoryStorage()
 
 			i := 0
 			for k, v := range tt.storage {
