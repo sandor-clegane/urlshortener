@@ -18,6 +18,13 @@ type OutMessage struct {
 	ShortURL string `json:"result"`
 }
 
+type DeletableURL struct {
+	ShortURL  string
+	ExpandURL string
+	UserID    string
+	IsDeleted bool
+}
+
 func (im *InMessage) UnmarshalJSON(data []byte) error {
 	aliasValue := &struct {
 		RawURL string `json:"url"`

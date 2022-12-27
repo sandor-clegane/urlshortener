@@ -77,6 +77,11 @@ func (s *InMemoryStorage) GetPairsByID(_ context.Context, userID string) ([]comm
 	return result, nil
 }
 
+//dummy for interface implementation
+func (s *InMemoryStorage) RemoveSomeURL(_ context.Context, _ []common.DeletableURL) error {
+	return nil
+}
+
 func NewInMemoryStorage() (*InMemoryStorage, error) {
 	return &InMemoryStorage{
 		storage:    make(map[string]string),

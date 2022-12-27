@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log"
 	"net/http"
 
 	_ "github.com/lib/pq"
@@ -36,7 +37,12 @@ func (h *URLhandlerImpl) GetAuthorizationMiddleware() func(next http.Handler) ht
 func (h *URLhandlerImpl) ExpandURL(w http.ResponseWriter, r *http.Request) {
 	expandURL, err := h.us.ExpandURL(r.Context(), r.URL.Path)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		var deletedErr *myerrors.DeleteViolation
+		if errors.As(err, &deletedErr) {
+			w.WriteHeader(http.StatusGone)
+		} else {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		}
 		return
 	}
 	w.Header().Add("Location", expandURL)
@@ -180,4 +186,32 @@ func (h *URLhandlerImpl) ShortenSomeURL(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+}
+
+//DeleteSomeURL асинхронный хендлер DELETE /api/user/urls, который
+//принимает список идентификаторов сокращённых URL для удаления в формате:
+// [ "a", "b", "c", "d", ...]
+//В случае успешного приёма запроса хендлер должен возвращать HTTP-статус 202 Accepted.
+func (h *URLhandlerImpl) DeleteSomeURL(w http.ResponseWriter, r *http.Request) {
+	authCookie, err := r.Cookie("userID")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	userID, err := h.cs.ExtractValue(authCookie)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	var urlIDList []string
+	err = json.NewDecoder(r.Body).Decode(&urlIDList)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	go func() {
+		err = h.us.DeleteSomeURL(r.Context(), userID, urlIDList)
+		log.Println(err)
+	}()
+	w.WriteHeader(http.StatusAccepted)
 }

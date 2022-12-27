@@ -58,6 +58,11 @@ func (fs *FileStorage) InsertSome(_ context.Context, expandURLwIDslice []common.
 	return nil
 }
 
+//dummy for interface implementation
+func (fs *FileStorage) RemoveSomeURL(_ context.Context, _ []common.DeletableURL) error {
+	return nil
+}
+
 func NewFileStorage(fileName string) (*FileStorage, error) {
 	file, err := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE, 0755)
 	if err != nil {

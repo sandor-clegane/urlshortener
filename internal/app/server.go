@@ -71,6 +71,9 @@ func (h *App) initHandlers() error {
 	h.Get("/ping", h.dbh.PingConnectionDB)
 	h.Get("/{id}", h.urlh.ExpandURL)
 	h.Get("/api/user/urls", h.urlh.GetAllURL)
+
+	h.Delete("/api/user/urls", h.urlh.DeleteSomeURL)
+
 	return nil
 }
 
