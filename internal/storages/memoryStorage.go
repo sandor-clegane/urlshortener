@@ -82,6 +82,9 @@ func (s *InMemoryStorage) RemoveSomeURL(_ context.Context, _ []common.DeletableU
 	return nil
 }
 
+func (u *InMemoryStorage) StopWorkerPool() {
+}
+
 func NewInMemoryStorage() (*InMemoryStorage, error) {
 	return &InMemoryStorage{
 		storage:    make(map[string]string),

@@ -103,7 +103,7 @@ func (s *urlshortenerServiceImpl) ShortenSomeURL(ctx context.Context,
 }
 
 func (s *urlshortenerServiceImpl) DeleteSomeURL(ctx context.Context, userID string, sliceShortID []string) error {
-	var delSLiceURL = make([]common.DeletableURL, len(sliceShortID))
+	var delSLiceURL = make([]common.DeletableURL, 0, len(sliceShortID))
 	for _, u := range sliceShortID {
 		ud := common.DeletableURL{
 			ShortURL:  u,

@@ -3,8 +3,10 @@ package storages
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
+	"sync"
 
 	"github.com/sandor-clegane/urlshortener/internal/common"
 	"github.com/sandor-clegane/urlshortener/internal/common/myerrors"
@@ -38,14 +40,15 @@ const (
 
 //utility constants
 const (
-	BuffSize int = 10
+	WorkersCount int = 10
 )
 
 type dbStorage struct {
 	dbConnection *sql.DB
-	deletedBatch []common.DeletableURL
-	deletedChan  chan *common.DeletableURL
+	deletedChan  chan common.DeletableURL
 	done         chan struct{}
+	wg           sync.WaitGroup
+	once         sync.Once
 }
 
 func NewDBStorage(dbAddress string) (*dbStorage, error) {
@@ -53,11 +56,13 @@ func NewDBStorage(dbAddress string) (*dbStorage, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &dbStorage{
+	storage := &dbStorage{
 		dbConnection: connection,
-		deletedBatch: make([]common.DeletableURL, 0, BuffSize),
-		deletedChan:  make(chan *common.DeletableURL),
-	}, nil
+		deletedChan:  make(chan common.DeletableURL),
+		done:         make(chan struct{}),
+	}
+	storage.runDeletionWorkerPool()
+	return storage, nil
 }
 
 func connect(dbAddress string) (*sql.DB, error) {
@@ -70,6 +75,14 @@ func connect(dbAddress string) (*sql.DB, error) {
 		return nil, err
 	}
 	return db, nil
+}
+
+func (d *dbStorage) StopWorkerPool() {
+	d.once.Do(func() {
+		close(d.done)
+		close(d.deletedChan)
+	})
+	d.wg.Wait()
 }
 
 func (d *dbStorage) Insert(ctx context.Context, urlID, expandURL, userID string) error {
@@ -127,7 +140,7 @@ func (d *dbStorage) LookUp(ctx context.Context, urlID string) (string, error) {
 		return "", err
 	}
 	if u.IsDeleted {
-		return "", myerrors.NewDeleteViolation(u, nil)
+		return "", myerrors.NewDeleteViolation(u.ExpandURL, nil)
 	}
 
 	return u.ExpandURL, nil
@@ -159,31 +172,8 @@ func (d *dbStorage) GetPairsByID(ctx context.Context, userID string) ([]common.P
 }
 
 func (d *dbStorage) RemoveSomeURL(_ context.Context, delSliceURL []common.DeletableURL) error {
-	go func() {
-		for _, ud := range delSliceURL {
-			d.deletedChan <- &ud
-		}
-		d.done <- struct{}{}
-	}()
-	go func() {
-		for {
-			select {
-			case ud := <-d.deletedChan:
-				d.Push(ud)
-			case <-d.done:
-				return
-			}
-		}
-	}()
-
-	return d.Flush()
-}
-
-func (d *dbStorage) Push(url *common.DeletableURL) error {
-	d.deletedBatch = append(d.deletedBatch, *url)
-
-	if cap(d.deletedBatch) == len(d.deletedBatch) {
-		err := d.Flush()
+	for _, ud := range delSliceURL {
+		err := d.Push(ud)
 		if err != nil {
 			return err
 		}
@@ -191,33 +181,38 @@ func (d *dbStorage) Push(url *common.DeletableURL) error {
 	return nil
 }
 
-func (d *dbStorage) Flush() error {
-	tx, err := d.dbConnection.Begin()
-	if err != nil {
-		return err
+func (d *dbStorage) Push(url common.DeletableURL) error {
+	select {
+	case <-d.done:
+		return errors.New("workers stopped")
+	case d.deletedChan <- url:
+		return nil
 	}
+}
 
-	stmt, err := tx.Prepare(deleteURLQuery)
-	if err != nil {
-		return err
-	}
-	defer stmt.Close()
-
-	for _, u := range d.deletedBatch {
-		if _, err = stmt.Exec(u.IsDeleted, u.ShortURL, u.UserID); err != nil {
-			if err = tx.Rollback(); err != nil {
-				log.Printf("update drivers: unable to rollback: %v", err)
-				return err
+func (d *dbStorage) runDeletionWorkerPool() {
+	for i := 0; i < WorkersCount; i++ {
+		d.wg.Add(1)
+		go func() {
+			defer d.wg.Done()
+			ctx := context.Background()
+			for {
+				select {
+				case <-d.done:
+					log.Println("Exiting")
+					return
+				case ud, ok := <-d.deletedChan:
+					if !ok {
+						return
+					}
+					_, err := d.dbConnection.
+						ExecContext(ctx, deleteURLQuery, ud.IsDeleted, ud.ShortURL, ud.UserID)
+					if err != nil {
+						log.Printf("Delete error %v", err)
+						return
+					}
+				}
 			}
-			return err
-		}
+		}()
 	}
-
-	if err = tx.Commit(); err != nil {
-		log.Printf("update drivers: unable to commit: %v", err)
-		return err
-	}
-
-	d.deletedBatch = d.deletedBatch[:0]
-	return nil
 }

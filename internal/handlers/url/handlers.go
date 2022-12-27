@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"log"
 	"net/http"
 
 	_ "github.com/lib/pq"
@@ -62,12 +61,12 @@ func (h *URLhandlerImpl) ShortenURL(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	rawurl, err := io.ReadAll(r.Body)
+	rawURL, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	short, err := h.us.ShortenURL(r.Context(), userID, string(rawurl))
+	short, err := h.us.ShortenURL(r.Context(), userID, string(rawURL))
 	if err == nil {
 		w.WriteHeader(http.StatusCreated)
 		w.Write([]byte(short))
@@ -114,8 +113,8 @@ func (h *URLhandlerImpl) ShortenURLwJSON(w http.ResponseWriter, r *http.Request)
 	if errors.As(err, &violationError) {
 		w.Header().Add("Content-Type", "application/json")
 		w.WriteHeader(http.StatusConflict)
-		outData := common.OutMessage{ShortURL: violationError.ExistedShortURL}
-		json.NewEncoder(w).Encode(outData)
+		json.NewEncoder(w).Encode(
+			common.OutMessage{ShortURL: violationError.ExistedShortURL})
 	} else {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	}
@@ -209,9 +208,10 @@ func (h *URLhandlerImpl) DeleteSomeURL(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	go func() {
-		err = h.us.DeleteSomeURL(r.Context(), userID, urlIDList)
-		log.Println(err)
-	}()
+	err = h.us.DeleteSomeURL(r.Context(), userID, urlIDList)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 	w.WriteHeader(http.StatusAccepted)
 }
