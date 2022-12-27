@@ -16,10 +16,10 @@ import (
 //modifying queries
 const (
 	initQuery = "CREATE TABLE IF NOT EXISTS urls " +
-		"(id VARCHAR(255) PRIMARY KEY, " +
-		"expand_url VARCHAR(255) UNIQUE, " +
-		"user_id VARCHAR(255)), " +
-		"is_deleted BOOLEAN)"
+		"(id varchar(255) PRIMARY KEY, " +
+		"expand_url varchar(255) UNIQUE, " +
+		"user_id varchar(255), " +
+		"is_deleted boolean)"
 	insertURLQuery = "INSERT INTO urls (id, expand_url, user_id, is_deleted) " +
 		"VALUES ($1, $2, $3, $4)"
 	insertURLQueryWithConstraint = "INSERT INTO urls (id, expand_url, user_id, is_deleted) " +
@@ -173,19 +173,15 @@ func (d *dbStorage) RemoveSomeURL(_ context.Context, delSliceURL []common.Deleta
 
 func (d *dbStorage) runDeletionWorkerPool() {
 	for i := 0; i < WorkersCount; i++ {
-		d.eg.Go(
-			func() error {
-				for {
-					select {
-					case ud := <-d.deletedChan:
-						_, err := d.dbConnection.
-							Exec(deleteURLQuery, ud.IsDeleted, ud.ShortURL, ud.UserID)
-						if err != nil {
-							return err
-						}
-					}
+		d.eg.Go(func() error {
+			for ud := range d.deletedChan {
+				_, err := d.dbConnection.
+					Exec(deleteURLQuery, ud.IsDeleted, ud.ShortURL, ud.UserID)
+				if err != nil {
+					return err
 				}
-			},
-		)
+			}
+			return nil
+		})
 	}
 }
