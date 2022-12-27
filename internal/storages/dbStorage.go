@@ -3,10 +3,11 @@ package storages
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"log"
 	"sync"
+
+	"golang.org/x/sync/errgroup"
 
 	"github.com/sandor-clegane/urlshortener/internal/common"
 	"github.com/sandor-clegane/urlshortener/internal/common/myerrors"
@@ -46,8 +47,7 @@ const (
 type dbStorage struct {
 	dbConnection *sql.DB
 	deletedChan  chan common.DeletableURL
-	done         chan struct{}
-	wg           sync.WaitGroup
+	eg           *errgroup.Group
 	once         sync.Once
 }
 
@@ -56,10 +56,11 @@ func NewDBStorage(dbAddress string) (*dbStorage, error) {
 	if err != nil {
 		return nil, err
 	}
+	errGroup, _ := errgroup.WithContext(context.Background())
 	storage := &dbStorage{
 		dbConnection: connection,
 		deletedChan:  make(chan common.DeletableURL),
-		done:         make(chan struct{}),
+		eg:           errGroup,
 	}
 	storage.runDeletionWorkerPool()
 	return storage, nil
@@ -75,14 +76,6 @@ func connect(dbAddress string) (*sql.DB, error) {
 		return nil, err
 	}
 	return db, nil
-}
-
-func (d *dbStorage) StopWorkerPool() {
-	d.once.Do(func() {
-		close(d.done)
-		close(d.deletedChan)
-	})
-	d.wg.Wait()
 }
 
 func (d *dbStorage) Insert(ctx context.Context, urlID, expandURL, userID string) error {
@@ -173,46 +166,26 @@ func (d *dbStorage) GetPairsByID(ctx context.Context, userID string) ([]common.P
 
 func (d *dbStorage) RemoveSomeURL(_ context.Context, delSliceURL []common.DeletableURL) error {
 	for _, ud := range delSliceURL {
-		err := d.Push(ud)
-		if err != nil {
-			return err
-		}
+		d.deletedChan <- ud
 	}
 	return nil
 }
 
-func (d *dbStorage) Push(url common.DeletableURL) error {
-	select {
-	case <-d.done:
-		return errors.New("workers stopped")
-	case d.deletedChan <- url:
-		return nil
-	}
-}
-
 func (d *dbStorage) runDeletionWorkerPool() {
 	for i := 0; i < WorkersCount; i++ {
-		d.wg.Add(1)
-		go func() {
-			defer d.wg.Done()
-			ctx := context.Background()
-			for {
-				select {
-				case <-d.done:
-					log.Println("Exiting")
-					return
-				case ud, ok := <-d.deletedChan:
-					if !ok {
-						return
-					}
-					_, err := d.dbConnection.
-						ExecContext(ctx, deleteURLQuery, ud.IsDeleted, ud.ShortURL, ud.UserID)
-					if err != nil {
-						log.Printf("Delete error %v", err)
-						return
+		d.eg.Go(
+			func() error {
+				for {
+					select {
+					case ud := <-d.deletedChan:
+						_, err := d.dbConnection.
+							Exec(deleteURLQuery, ud.IsDeleted, ud.ShortURL, ud.UserID)
+						if err != nil {
+							return err
+						}
 					}
 				}
-			}
-		}()
+			},
+		)
 	}
 }
