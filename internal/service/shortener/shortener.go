@@ -114,3 +114,7 @@ func (s *urlshortenerServiceImpl) DeleteSomeURL(ctx context.Context, userID stri
 	}
 	return s.storage.RemoveSomeURL(ctx, delSLiceURL)
 }
+
+func (s *urlshortenerServiceImpl) Ping(ctx context.Context) error {
+	return s.storage.Ping(ctx)
+}

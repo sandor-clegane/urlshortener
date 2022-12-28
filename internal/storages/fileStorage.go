@@ -63,6 +63,10 @@ func (fs *FileStorage) RemoveSomeURL(_ context.Context, _ []common.DeletableURL)
 	return nil
 }
 
+func (fs *FileStorage) Ping(_ context.Context) error {
+	return nil
+}
+
 func NewFileStorage(fileName string) (*FileStorage, error) {
 	file, err := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE, 0755)
 	if err != nil {

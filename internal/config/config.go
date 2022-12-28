@@ -1,6 +1,10 @@
 package config
 
-import "flag"
+import (
+	"flag"
+
+	"github.com/caarlos0/env/v6"
+)
 
 const (
 	DefaultServerAddress   = "localhost:8080"
@@ -18,7 +22,7 @@ type Config struct {
 	DatabaseDSN     string `env:"DATABASE_DSN" envDefault:"user=pqgotest dbname=pqgotest sslmode=verify-full"`
 }
 
-func (c *Config) ParseArgsCMD() {
+func (c *Config) parseArgsCMD() {
 	if !flag.Parsed() {
 		flag.StringVar(&c.ServerAddress, "a",
 			DefaultServerAddress, "http server launching address")
@@ -32,7 +36,7 @@ func (c *Config) ParseArgsCMD() {
 	}
 }
 
-func (c *Config) ApplyConfig(other Config) {
+func (c *Config) applyConfig(other Config) {
 	if c.ServerAddress == DefaultServerAddress {
 		c.ServerAddress = other.ServerAddress
 	}
@@ -48,4 +52,18 @@ func (c *Config) ApplyConfig(other Config) {
 	if c.DatabaseDSN == DefaultDatabaseDSN {
 		c.DatabaseDSN = other.DatabaseDSN
 	}
+}
+
+func (c *Config) InitConfig() error {
+	var c2 Config
+	//parsing env config
+	err := env.Parse(&c)
+	if err != nil {
+		return err
+	}
+	//parsing command line config
+	c2.parseArgsCMD()
+	//applying config
+	c.applyConfig(c2)
+	return nil
 }

@@ -82,6 +82,10 @@ func (s *InMemoryStorage) RemoveSomeURL(_ context.Context, _ []common.DeletableU
 	return nil
 }
 
+func (s *InMemoryStorage) Ping(_ context.Context) error {
+	return nil
+}
+
 func NewInMemoryStorage() (*InMemoryStorage, error) {
 	return &InMemoryStorage{
 		storage:    make(map[string]string),

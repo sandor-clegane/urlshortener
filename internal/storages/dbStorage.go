@@ -16,9 +16,9 @@ import (
 //modifying queries
 const (
 	initQuery = "CREATE TABLE IF NOT EXISTS urls " +
-		"(id varchar(255) PRIMARY KEY, " +
-		"expand_url varchar(255) UNIQUE, " +
-		"user_id varchar(255), " +
+		"(id VARCHAR(255) PRIMARY KEY, " +
+		"expand_url VARCHAR(255) UNIQUE, " +
+		"user_id VARCHAR(255), " +
 		"is_deleted boolean)"
 	insertURLQuery = "INSERT INTO urls (id, expand_url, user_id, is_deleted) " +
 		"VALUES ($1, $2, $3, $4)"
@@ -41,7 +41,7 @@ const (
 
 //utility constants
 const (
-	WorkersCount int = 10
+	workersCount int = 10
 )
 
 type dbStorage struct {
@@ -172,7 +172,7 @@ func (d *dbStorage) RemoveSomeURL(_ context.Context, delSliceURL []common.Deleta
 }
 
 func (d *dbStorage) runDeletionWorkerPool() {
-	for i := 0; i < WorkersCount; i++ {
+	for i := 0; i < workersCount; i++ {
 		d.eg.Go(func() error {
 			for ud := range d.deletedChan {
 				_, err := d.dbConnection.
@@ -184,4 +184,8 @@ func (d *dbStorage) runDeletionWorkerPool() {
 			return nil
 		})
 	}
+}
+
+func (d *dbStorage) Ping(ctx context.Context) error {
+	return d.dbConnection.PingContext(ctx)
 }

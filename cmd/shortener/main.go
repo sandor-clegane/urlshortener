@@ -5,10 +5,13 @@ import (
 	"net/http"
 
 	"github.com/sandor-clegane/urlshortener/internal/app"
+	"github.com/sandor-clegane/urlshortener/internal/config"
 )
 
 func main() {
-	h, err := app.New()
+	var cfg config.Config
+	cfg.InitConfig()
+	h, err := app.New(cfg)
 	if err != nil {
 		log.Fatal(err)
 	}

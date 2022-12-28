@@ -215,3 +215,15 @@ func (h *URLhandlerImpl) DeleteSomeURL(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusAccepted)
 }
+
+// PingConnectionDB Добавьте в сервис хендлер GET /ping, который при запросе проверяет соединение с базой данных.
+//При успешной проверке хендлер должен вернуть HTTP-статус 200 OK,
+//при неуспешной — 500 Internal Server Error
+func (h *URLhandlerImpl) PingConnectionDB(w http.ResponseWriter, r *http.Request) {
+	err := h.us.Ping(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
