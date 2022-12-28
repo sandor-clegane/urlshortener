@@ -86,6 +86,8 @@ func (s *InMemoryStorage) Ping(_ context.Context) error {
 	return nil
 }
 
+func (s *InMemoryStorage) StopWorkerPool() {}
+
 func NewInMemoryStorage() (*InMemoryStorage, error) {
 	return &InMemoryStorage{
 		storage:    make(map[string]string),

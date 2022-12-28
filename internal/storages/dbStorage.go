@@ -3,11 +3,10 @@ package storages
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"sync"
-
-	"golang.org/x/sync/errgroup"
 
 	"github.com/sandor-clegane/urlshortener/internal/common"
 	"github.com/sandor-clegane/urlshortener/internal/common/myerrors"
@@ -47,7 +46,8 @@ const (
 type dbStorage struct {
 	dbConnection *sql.DB
 	deletedChan  chan common.DeletableURL
-	eg           *errgroup.Group
+	done         chan struct{}
+	wg           sync.WaitGroup
 	once         sync.Once
 }
 
@@ -56,13 +56,12 @@ func NewDBStorage(dbAddress string) (*dbStorage, error) {
 	if err != nil {
 		return nil, err
 	}
-	errGroup, _ := errgroup.WithContext(context.Background())
 	storage := &dbStorage{
 		dbConnection: connection,
 		deletedChan:  make(chan common.DeletableURL),
-		eg:           errGroup,
+		done:         make(chan struct{}),
 	}
-	storage.runDeletionWorkerPool()
+	storage.runWorkerPool()
 	return storage, nil
 }
 
@@ -165,25 +164,55 @@ func (d *dbStorage) GetPairsByID(ctx context.Context, userID string) ([]common.P
 }
 
 func (d *dbStorage) RemoveSomeURL(_ context.Context, delSliceURL []common.DeletableURL) error {
-	for _, ud := range delSliceURL {
-		d.deletedChan <- ud
+	for _, delURL := range delSliceURL {
+		err := d.push(delURL)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
-func (d *dbStorage) runDeletionWorkerPool() {
+func (d *dbStorage) push(dURL common.DeletableURL) error {
+	select {
+	case <-d.done:
+		return errors.New("storage closed")
+	case d.deletedChan <- dURL:
+		return nil
+	}
+}
+
+func (d *dbStorage) runWorkerPool() {
 	for i := 0; i < workersCount; i++ {
-		d.eg.Go(func() error {
-			for ud := range d.deletedChan {
-				_, err := d.dbConnection.
-					Exec(deleteURLQuery, ud.IsDeleted, ud.ShortURL, ud.UserID)
-				if err != nil {
-					return err
+		d.wg.Add(1)
+		go func() {
+			defer d.wg.Done()
+			ctx := context.Background()
+			for {
+				select {
+				case <-d.done:
+					return
+				case delURL, ok := <-d.deletedChan:
+					if !ok {
+						return
+					}
+					_, err := d.dbConnection.ExecContext(ctx, deleteURLQuery,
+						delURL.IsDeleted, delURL.ShortURL, delURL.UserID)
+					if err != nil {
+						return
+					}
 				}
 			}
-			return nil
-		})
+		}()
 	}
+}
+
+func (d *dbStorage) StopWorkerPool() {
+	d.once.Do(func() {
+		close(d.done)
+		close(d.deletedChan)
+	})
+	d.wg.Wait()
 }
 
 func (d *dbStorage) Ping(ctx context.Context) error {

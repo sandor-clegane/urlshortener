@@ -67,6 +67,8 @@ func (fs *FileStorage) Ping(_ context.Context) error {
 	return nil
 }
 
+func (fs *FileStorage) StopWorkerPool() {}
+
 func NewFileStorage(fileName string) (*FileStorage, error) {
 	file, err := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE, 0755)
 	if err != nil {

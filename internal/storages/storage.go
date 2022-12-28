@@ -18,6 +18,7 @@ type Storage interface {
 	GetPairsByID(ctx context.Context, userID string) ([]common.PairURL, error)
 	RemoveSomeURL(ctx context.Context, delSliceURL []common.DeletableURL) error
 	Ping(ctx context.Context) error
+	StopWorkerPool()
 }
 
 func CreateStorage(cfg config.Config) (Storage, error) {

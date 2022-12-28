@@ -2,6 +2,9 @@ package app
 
 import (
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/sandor-clegane/urlshortener/internal/config"
@@ -31,12 +34,22 @@ func New(cfg config.Config) (*App, error) {
 		ReadTimeout:  rTimeout,
 		WriteTimeout: wTimeout,
 	}
-	//defer closeHTTPServerAndStopWorkerPool(server, urlRepository)
+	defer Shutdown(server, stg)
 	return &App{
 		server: server,
 	}, nil
 }
 
-func (h *App) Run() error {
-	return h.server.ListenAndServe()
+func Shutdown(server *http.Server, storage storages.Storage) {
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sigs
+		server.Close()
+		storage.StopWorkerPool()
+	}()
+}
+
+func (app *App) Run() error {
+	return app.server.ListenAndServe()
 }

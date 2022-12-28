@@ -10,7 +10,7 @@ import (
 
 func main() {
 	var cfg config.Config
-	cfg.InitConfig()
+	cfg.Init()
 	h, err := app.New(cfg)
 	if err != nil {
 		log.Fatal(err)

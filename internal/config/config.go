@@ -54,7 +54,7 @@ func (c *Config) applyConfig(other Config) {
 	}
 }
 
-func (c *Config) InitConfig() error {
+func (c *Config) Init() error {
 	var c2 Config
 	//parsing env config
 	err := env.Parse(&c)
