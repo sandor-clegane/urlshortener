@@ -30,10 +30,11 @@ func New(cfg config.Config) (*App, error) {
 	router := router2.NewRouter(url.New(stg, cfg))
 
 	server := &http.Server{
-		Addr:         cfg.ServerAddress,
-		Handler:      router,
-		ReadTimeout:  rTimeout,
-		WriteTimeout: wTimeout,
+		Addr:           cfg.ServerAddress,
+		Handler:        router,
+		ReadTimeout:    rTimeout,
+		WriteTimeout:   wTimeout,
+		MaxHeaderBytes: 1 << 20,
 	}
 	defer Shutdown(server, stg)
 	return &App{
@@ -47,7 +48,7 @@ func Shutdown(server *http.Server, storage storages.Storage) {
 	go func() {
 		<-sigs
 		server.Close()
-		storage.StopWorkerPool()
+		storage.Stop()
 	}()
 }
 

@@ -44,11 +44,15 @@ const (
 )
 
 type dbStorage struct {
-	dbConnection *sql.DB
-	deletedChan  chan common.DeletableURL
-	done         chan struct{}
-	wg           sync.WaitGroup
-	once         sync.Once
+	dbConnection  *sql.DB
+	deletionBatch chan common.DeletableURL
+	sync          syncObj
+}
+
+type syncObj struct {
+	done chan struct{}
+	wg   sync.WaitGroup
+	once sync.Once
 }
 
 func NewDBStorage(dbAddress string) (*dbStorage, error) {
@@ -57,9 +61,9 @@ func NewDBStorage(dbAddress string) (*dbStorage, error) {
 		return nil, err
 	}
 	storage := &dbStorage{
-		dbConnection: connection,
-		deletedChan:  make(chan common.DeletableURL),
-		done:         make(chan struct{}),
+		dbConnection:  connection,
+		deletionBatch: make(chan common.DeletableURL),
+		sync:          syncObj{done: make(chan struct{})},
 	}
 	storage.runWorkerPool()
 	return storage, nil
@@ -175,24 +179,24 @@ func (d *dbStorage) RemoveSomeURL(_ context.Context, delSliceURL []common.Deleta
 
 func (d *dbStorage) push(dURL common.DeletableURL) error {
 	select {
-	case <-d.done:
+	case <-d.sync.done:
 		return errors.New("storage closed")
-	case d.deletedChan <- dURL:
+	case d.deletionBatch <- dURL:
 		return nil
 	}
 }
 
 func (d *dbStorage) runWorkerPool() {
 	for i := 0; i < workersCount; i++ {
-		d.wg.Add(1)
+		d.sync.wg.Add(1)
 		go func() {
-			defer d.wg.Done()
+			defer d.sync.wg.Done()
 			ctx := context.Background()
 			for {
 				select {
-				case <-d.done:
+				case <-d.sync.done:
 					return
-				case delURL, ok := <-d.deletedChan:
+				case delURL, ok := <-d.deletionBatch:
 					if !ok {
 						return
 					}
@@ -207,12 +211,12 @@ func (d *dbStorage) runWorkerPool() {
 	}
 }
 
-func (d *dbStorage) StopWorkerPool() {
-	d.once.Do(func() {
-		close(d.done)
-		close(d.deletedChan)
+func (d *dbStorage) Stop() {
+	d.sync.once.Do(func() {
+		close(d.sync.done)
+		close(d.deletionBatch)
 	})
-	d.wg.Wait()
+	d.sync.wg.Wait()
 }
 
 func (d *dbStorage) Ping(ctx context.Context) error {
