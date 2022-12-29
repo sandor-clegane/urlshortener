@@ -11,7 +11,7 @@ const (
 	DefaultBaseURL         = "http://localhost:8080/"
 	DefaultFileStoragePath = ""
 	DefaultKey             = "SuperSecretKey2022"
-	DefaultDatabaseDSN     = "user=pqgotest dbname=pqgotest sslmode=verify-full"
+	DefaultDatabaseDSN     = ""
 )
 
 type Config struct {
@@ -19,7 +19,7 @@ type Config struct {
 	BaseURL         string `env:"BASE_URL"       envDefault:"http://localhost:8080/"`
 	FileStoragePath string `env:"FILE_STORAGE_PATH" envDefault:""`
 	Key             string `env:"SECRET_KEY" envDefault:"SuperSecretKey2022"`
-	DatabaseDSN     string `env:"DATABASE_DSN" envDefault:"user=pqgotest dbname=pqgotest sslmode=verify-full"`
+	DatabaseDSN     string `env:"DATABASE_DSN" envDefault:""`
 }
 
 func (c *Config) parseArgsCMD() {
@@ -57,7 +57,7 @@ func (c *Config) applyConfig(other Config) {
 func (c *Config) Init() error {
 	var c2 Config
 	//parsing env config
-	err := env.Parse(&c)
+	err := env.Parse(c)
 	if err != nil {
 		return err
 	}

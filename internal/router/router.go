@@ -5,7 +5,7 @@ import (
 	"github.com/sandor-clegane/urlshortener/internal/handlers/url"
 )
 
-func NewRouter(h url.URLHandler) *chi.Mux {
+func NewRouter(h url.URLHandler) chi.Router {
 	r := chi.NewRouter()
 	r.Use(GzipCompressHandle, GzipDecompressHandle, h.GetAuthorizationMiddleware())
 	r.Post("/", h.ShortenURL)

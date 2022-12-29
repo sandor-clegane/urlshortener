@@ -28,6 +28,7 @@ func New(cfg config.Config) (*App, error) {
 		return nil, err
 	}
 	router := router2.NewRouter(url.New(stg, cfg))
+
 	server := &http.Server{
 		Addr:         cfg.ServerAddress,
 		Handler:      router,
