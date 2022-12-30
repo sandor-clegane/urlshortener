@@ -198,6 +198,15 @@ func (d *dbStorage) runWorkerPool() {
 					if !ok {
 						return
 					}
+					//-------
+					rows, _ := d.dbConnection.QueryContext(ctx, "SELECT * FROM urls")
+					var p common.DeletableURL
+					for rows.Next() {
+						rows.Scan(&p.ShortURL, &p.ExpandURL, &p.UserID, &p.IsDeleted)
+						fmt.Println(p)
+					}
+					rows.Close()
+					//-------
 					res, err := d.dbConnection.ExecContext(ctx, deleteURLQuery,
 						delURL.IsDeleted, delURL.ShortURL, delURL.UserID)
 					log.Println(res.RowsAffected())
