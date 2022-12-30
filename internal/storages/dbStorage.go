@@ -198,10 +198,10 @@ func (d *dbStorage) runWorkerPool() {
 					if !ok {
 						return
 					}
-					_, err := d.dbConnection.ExecContext(ctx, deleteURLQuery,
+					res, err := d.dbConnection.ExecContext(ctx, deleteURLQuery,
 						delURL.IsDeleted, delURL.ShortURL, delURL.UserID)
+					log.Println(res.RowsAffected())
 					if err != nil {
-						log.Printf("%v", err)
 						return
 					}
 				case <-d.sync.done:
