@@ -167,7 +167,7 @@ func (h *URLhandlerImpl) ShortenSomeURL(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
-//DeleteSomeURL асинхронный хендлер DELETE /api/user/urls, который
+//DeleteMultipleURLs асинхронный хендлер DELETE /api/user/urls, который
 //принимает список идентификаторов сокращённых URL для удаления в формате:
 // [ "a", "b", "c", "d", ...]
 //В случае успешного приёма запроса хендлер должен возвращать HTTP-статус 202 Accepted.
@@ -183,7 +183,7 @@ func (h *URLhandlerImpl) DeleteMultipleURLs(w http.ResponseWriter, r *http.Reque
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	err = h.us.DeleteSomeURL(r.Context(), userID, urlIDList)
+	err = h.us.DeleteMultipleURLs(r.Context(), userID, urlIDList)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return

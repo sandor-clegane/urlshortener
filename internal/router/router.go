@@ -14,6 +14,6 @@ func NewRouter(h url.URLHandler) chi.Router {
 	r.Get("/ping", h.PingConnectionDB)
 	r.Get("/{id}", h.ExpandURL)
 	r.Get("/api/user/urls", h.GetAllURL)
-	r.Delete("/api/user/urls", h.DeleteSomeURL)
+	r.Delete("/api/user/urls", h.DeleteMultipleURLs)
 	return r
 }
