@@ -6,21 +6,26 @@ import (
 	"sync"
 
 	"github.com/sandor-clegane/urlshortener/internal/common"
+	"github.com/sandor-clegane/urlshortener/internal/common/myerrors"
 )
 
 type InMemoryStorage struct {
-	storage    map[string]string
-	userToKeys map[string][]string
-	lock       sync.RWMutex
+	deletedItems map[string]struct{}
+	storage      map[string]string
+	userToKeys   map[string][]string
+	lock         sync.RWMutex
 }
 
 func (s *InMemoryStorage) LookUp(_ context.Context, str string) (string, error) {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 	res, ok := s.storage[str]
-
 	if !ok {
 		return "", fmt.Errorf("no %s short URL in database", str)
+	}
+	_, isDeleted := s.deletedItems[str]
+	if isDeleted {
+		return "", myerrors.NewDeleteViolation(res, nil)
 	}
 	return res, nil
 }
@@ -71,8 +76,12 @@ func (s *InMemoryStorage) GetPairsByID(_ context.Context, userID string) ([]comm
 	return result, nil
 }
 
-//dummy for interface implementation
-func (s *InMemoryStorage) DeleteMultipleURLs(_ context.Context, _ []common.DeletableURL) error {
+func (s *InMemoryStorage) DeleteMultipleURLs(_ context.Context, delURLs []common.DeletableURL) error {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	for _, du := range delURLs {
+		s.deletedItems[du.ShortURL] = struct{}{}
+	}
 	return nil
 }
 
@@ -84,7 +93,8 @@ func (s *InMemoryStorage) Stop() {}
 
 func NewInMemoryStorage() (*InMemoryStorage, error) {
 	return &InMemoryStorage{
-		storage:    make(map[string]string),
-		userToKeys: make(map[string][]string),
+		storage:      make(map[string]string),
+		userToKeys:   make(map[string][]string),
+		deletedItems: make(map[string]struct{}),
 	}, nil
 }
