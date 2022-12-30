@@ -207,6 +207,8 @@ func (d *dbStorage) runWorkerPool() {
 					}
 					rows.Close()
 					//-------
+					fmt.Println(delURL)
+					//------
 					res, err := d.dbConnection.ExecContext(ctx, deleteURLQuery,
 						delURL.IsDeleted, delURL.ShortURL, delURL.UserID)
 					log.Println(res.RowsAffected())

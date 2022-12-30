@@ -5,6 +5,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"net/url"
+	"strings"
 
 	"github.com/sandor-clegane/urlshortener/internal/common"
 	"github.com/sandor-clegane/urlshortener/internal/common/myerrors"
@@ -37,7 +38,7 @@ func (s *urlshortenerServiceImpl) ShortenURL(ctx context.Context, userID, rawURL
 	if err != nil {
 		return "", err
 	}
-	err = s.storage.Insert(ctx, shortURL.Path, rawURL, userID)
+	err = s.storage.Insert(ctx, strings.TrimPrefix(shortURL.Path, "/"), rawURL, userID)
 	if err != nil {
 		return "", myerrors.NewUniqueViolation(shortURL.String(), err)
 	}
@@ -85,7 +86,7 @@ func (s *urlshortenerServiceImpl) ShortenSomeURL(ctx context.Context,
 
 		pairURL := common.PairURL{
 			ExpandURL: v.OriginalURL,
-			ShortURL:  shortURL.Path,
+			ShortURL:  strings.TrimPrefix(shortURL.Path, "/"),
 		}
 
 		URLwCIDout := common.PairURLwithCIDout{

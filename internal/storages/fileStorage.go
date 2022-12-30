@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/sandor-clegane/urlshortener/internal/common"
 )
@@ -21,12 +20,11 @@ type record struct {
 }
 
 func (fs *FileStorage) Insert(_ context.Context, key, value, userID string) error {
-	trimmedKey := strings.TrimPrefix(key, "/")
 	r := record{Key: key, Value: value}
 
 	fs.lock.Lock()
 	defer fs.lock.Unlock()
-	_, isExists := fs.storage[trimmedKey]
+	_, isExists := fs.storage[key]
 	if isExists {
 		return fmt.Errorf("key %s already exists", key)
 	}
@@ -34,8 +32,8 @@ func (fs *FileStorage) Insert(_ context.Context, key, value, userID string) erro
 	if err != nil {
 		return err
 	}
-	fs.storage[trimmedKey] = value
-	fs.userToKeys[userID] = append(fs.userToKeys[userID], trimmedKey)
+	fs.storage[key] = value
+	fs.userToKeys[userID] = append(fs.userToKeys[userID], key)
 
 	return nil
 }
@@ -46,14 +44,13 @@ func (fs *FileStorage) InsertSome(_ context.Context, expandURLwIDslice []common.
 	fs.lock.Lock()
 	defer fs.lock.Unlock()
 	for _, p := range expandURLwIDslice {
-		trimmedKey := strings.TrimPrefix(p.ShortURL, "/")
-		r = record{Key: trimmedKey, Value: p.ExpandURL}
-		fs.storage[trimmedKey] = p.ExpandURL
+		r = record{Key: p.ShortURL, Value: p.ExpandURL}
+		fs.storage[p.ShortURL] = p.ExpandURL
 		err := fs.enc.Encode(&r)
 		if err != nil {
 			return err
 		}
-		fs.userToKeys[userID] = append(fs.userToKeys[userID], trimmedKey)
+		fs.userToKeys[userID] = append(fs.userToKeys[userID], p.ShortURL)
 	}
 	return nil
 }
