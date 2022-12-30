@@ -10,7 +10,7 @@ type URLHandler interface {
 	ShortenURL(w http.ResponseWriter, r *http.Request)
 	ShortenURLwJSON(w http.ResponseWriter, r *http.Request)
 	ShortenSomeURL(w http.ResponseWriter, r *http.Request)
-	DeleteSomeURL(w http.ResponseWriter, r *http.Request)
+	DeleteMultipleURLs(w http.ResponseWriter, r *http.Request)
 	PingConnectionDB(w http.ResponseWriter, r *http.Request)
 
 	GetAuthorizationMiddleware() func(next http.Handler) http.Handler

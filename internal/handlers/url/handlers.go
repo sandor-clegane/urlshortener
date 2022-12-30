@@ -171,7 +171,7 @@ func (h *URLhandlerImpl) ShortenSomeURL(w http.ResponseWriter, r *http.Request) 
 //принимает список идентификаторов сокращённых URL для удаления в формате:
 // [ "a", "b", "c", "d", ...]
 //В случае успешного приёма запроса хендлер должен возвращать HTTP-статус 202 Accepted.
-func (h *URLhandlerImpl) DeleteSomeURL(w http.ResponseWriter, r *http.Request) {
+func (h *URLhandlerImpl) DeleteMultipleURLs(w http.ResponseWriter, r *http.Request) {
 	userID, err := h.cs.GetUserID(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)

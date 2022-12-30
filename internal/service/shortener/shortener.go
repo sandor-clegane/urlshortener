@@ -102,7 +102,7 @@ func (s *urlshortenerServiceImpl) ShortenSomeURL(ctx context.Context,
 	return ResponseURLwIDslice, nil
 }
 
-func (s *urlshortenerServiceImpl) DeleteSomeURL(ctx context.Context, userID string, sliceShortID []string) error {
+func (s *urlshortenerServiceImpl) DeleteMultipleURLs(ctx context.Context, userID string, sliceShortID []string) error {
 	var delSLiceURL = make([]common.DeletableURL, 0, len(sliceShortID))
 	for _, u := range sliceShortID {
 		ud := common.DeletableURL{
@@ -112,7 +112,7 @@ func (s *urlshortenerServiceImpl) DeleteSomeURL(ctx context.Context, userID stri
 		}
 		delSLiceURL = append(delSLiceURL, ud)
 	}
-	return s.storage.RemoveSomeURL(ctx, delSLiceURL)
+	return s.storage.DeleteMultipleURLs(ctx, delSLiceURL)
 }
 
 func (s *urlshortenerServiceImpl) Ping(ctx context.Context) error {

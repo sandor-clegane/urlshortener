@@ -25,8 +25,8 @@ const (
 		"VALUES ($1, $2, $3, $4) " +
 		"ON CONFLICT DO NOTHING"
 	deleteURLQuery = "UPDATE urls " +
-		"SET is_deleted = $1 " +
-		"WHERE id = $2 AND user_id = $3"
+		"SET is_deleted=$1 " +
+		"WHERE id=$2 AND user_id=$3"
 )
 
 //non-mod queries
@@ -46,7 +46,7 @@ const (
 type dbStorage struct {
 	dbConnection  *sql.DB
 	deletionBatch chan common.DeletableURL
-	sync          syncObj
+	sync          *syncObj
 }
 
 type syncObj struct {
@@ -56,20 +56,20 @@ type syncObj struct {
 }
 
 func NewDBStorage(dbAddress string) (*dbStorage, error) {
-	connection, err := connect(dbAddress)
+	connection, err := connectAndInit(dbAddress)
 	if err != nil {
 		return nil, err
 	}
 	storage := &dbStorage{
 		dbConnection:  connection,
 		deletionBatch: make(chan common.DeletableURL),
-		sync:          syncObj{done: make(chan struct{})},
+		sync:          &syncObj{done: make(chan struct{})},
 	}
 	storage.runWorkerPool()
 	return storage, nil
 }
 
-func connect(dbAddress string) (*sql.DB, error) {
+func connectAndInit(dbAddress string) (*sql.DB, error) {
 	db, err := sql.Open("postgres", dbAddress)
 	if err != nil {
 		return nil, err
@@ -167,7 +167,7 @@ func (d *dbStorage) GetPairsByID(ctx context.Context, userID string) ([]common.P
 	return pairs, nil
 }
 
-func (d *dbStorage) RemoveSomeURL(_ context.Context, delSliceURL []common.DeletableURL) error {
+func (d *dbStorage) DeleteMultipleURLs(_ context.Context, delSliceURL []common.DeletableURL) error {
 	for _, delURL := range delSliceURL {
 		err := d.push(delURL)
 		if err != nil {
@@ -179,10 +179,10 @@ func (d *dbStorage) RemoveSomeURL(_ context.Context, delSliceURL []common.Deleta
 
 func (d *dbStorage) push(dURL common.DeletableURL) error {
 	select {
-	case <-d.sync.done:
-		return errors.New("storage closed")
 	case d.deletionBatch <- dURL:
 		return nil
+	case <-d.sync.done:
+		return errors.New("storage closed")
 	}
 }
 
@@ -194,8 +194,6 @@ func (d *dbStorage) runWorkerPool() {
 			ctx := context.Background()
 			for {
 				select {
-				case <-d.sync.done:
-					return
 				case delURL, ok := <-d.deletionBatch:
 					if !ok {
 						return
@@ -203,8 +201,11 @@ func (d *dbStorage) runWorkerPool() {
 					_, err := d.dbConnection.ExecContext(ctx, deleteURLQuery,
 						delURL.IsDeleted, delURL.ShortURL, delURL.UserID)
 					if err != nil {
+						log.Printf("%v", err)
 						return
 					}
+				case <-d.sync.done:
+					return
 				}
 			}
 		}()

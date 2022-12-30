@@ -78,7 +78,7 @@ func (s *InMemoryStorage) GetPairsByID(_ context.Context, userID string) ([]comm
 }
 
 //dummy for interface implementation
-func (s *InMemoryStorage) RemoveSomeURL(_ context.Context, _ []common.DeletableURL) error {
+func (s *InMemoryStorage) DeleteMultipleURLs(_ context.Context, _ []common.DeletableURL) error {
 	return nil
 }
 

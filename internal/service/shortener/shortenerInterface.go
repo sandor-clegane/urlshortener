@@ -16,6 +16,6 @@ type URLshortenerService interface {
 	GetAllURL(ctx context.Context, userID string) ([]common.PairURL, error)
 	ShortenSomeURL(ctx context.Context,
 		userID string, expandURLwIDslice []common.PairURLwithCIDin) ([]common.PairURLwithCIDout, error)
-	DeleteSomeURL(ctx context.Context, userID string, sliceShortID []string) error
+	DeleteMultipleURLs(ctx context.Context, userID string, sliceShortID []string) error
 	Ping(ctx context.Context) error
 }
