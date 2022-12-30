@@ -24,6 +24,7 @@ func New(stg storages.Storage, baseURL string) URLshortenerService {
 	}
 }
 
+//TODO разделить сокращение и добавление префикса
 func (s *urlshortenerServiceImpl) shorten(url *url.URL) (*url.URL, error) {
 	hash := md5.Sum([]byte(url.String()))
 	return common.Join(s.baseURL, hex.EncodeToString(hash[:]))
@@ -47,7 +48,7 @@ func (s *urlshortenerServiceImpl) ShortenURL(ctx context.Context, userID, rawURL
 }
 
 func (s *urlshortenerServiceImpl) ExpandURL(ctx context.Context, shortURL string) (string, error) {
-	res, err := s.storage.LookUp(ctx, shortURL)
+	res, err := s.storage.LookUp(ctx, strings.TrimPrefix(shortURL, "/"))
 	if err != nil {
 		return "", err
 	}

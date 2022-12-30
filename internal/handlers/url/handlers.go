@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/go-chi/chi"
 	_ "github.com/lib/pq"
 	"github.com/sandor-clegane/urlshortener/internal/common"
 	"github.com/sandor-clegane/urlshortener/internal/common/myerrors"
@@ -34,7 +35,12 @@ func (h *URLhandlerImpl) GetAuthorizationMiddleware() func(next http.Handler) ht
 //ExpandURL Эндпоинт GET /{id} принимает в качестве URL-параметра идентификатор сокращённого URL и
 //возвращает ответ с кодом 307 и оригинальным URL в HTTP-заголовке Location.
 func (h *URLhandlerImpl) ExpandURL(w http.ResponseWriter, r *http.Request) {
-	expandURL, err := h.us.ExpandURL(r.Context(), r.URL.Path)
+	shortURL := chi.URLParam(r, "id")
+	if shortURL == "" {
+		http.Error(w, "No id param in URL", http.StatusBadRequest)
+		return
+	}
+	expandURL, err := h.us.ExpandURL(r.Context(), shortURL)
 	if err != nil {
 		var deletedErr *myerrors.DeleteViolation
 		if errors.As(err, &deletedErr) {

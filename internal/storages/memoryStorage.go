@@ -3,7 +3,6 @@ package storages
 import (
 	"context"
 	"fmt"
-	"strings"
 	"sync"
 
 	"github.com/sandor-clegane/urlshortener/internal/common"
@@ -16,11 +15,9 @@ type InMemoryStorage struct {
 }
 
 func (s *InMemoryStorage) LookUp(_ context.Context, str string) (string, error) {
-	trimmedStr := strings.TrimPrefix(str, "/")
-
 	s.lock.RLock()
 	defer s.lock.RUnlock()
-	res, ok := s.storage[trimmedStr]
+	res, ok := s.storage[str]
 
 	if !ok {
 		return "", fmt.Errorf("no %s short URL in database", str)
@@ -29,16 +26,14 @@ func (s *InMemoryStorage) LookUp(_ context.Context, str string) (string, error) 
 }
 
 func (s *InMemoryStorage) Insert(_ context.Context, key, value, userID string) error {
-	trimmedKey := strings.TrimPrefix(key, "/")
-
 	s.lock.Lock()
 	defer s.lock.Unlock()
-	_, isExists := s.storage[trimmedKey]
+	_, isExists := s.storage[key]
 	if isExists {
 		return fmt.Errorf("key %s already exists", key)
 	}
-	s.storage[trimmedKey] = value
-	s.userToKeys[userID] = append(s.userToKeys[userID], trimmedKey)
+	s.storage[key] = value
+	s.userToKeys[userID] = append(s.userToKeys[userID], key)
 
 	return nil
 }
@@ -47,9 +42,8 @@ func (s *InMemoryStorage) InsertSome(_ context.Context, expandURLwIDslice []comm
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	for _, p := range expandURLwIDslice {
-		trimmedKey := strings.TrimPrefix(p.ShortURL, "/")
-		s.storage[trimmedKey] = p.ExpandURL
-		s.userToKeys[userID] = append(s.userToKeys[userID], trimmedKey)
+		s.storage[p.ShortURL] = p.ExpandURL
+		s.userToKeys[userID] = append(s.userToKeys[userID], p.ShortURL)
 	}
 
 	return nil
