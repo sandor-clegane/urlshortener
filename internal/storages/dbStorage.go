@@ -202,7 +202,7 @@ func (d *dbStorage) runWorkerPool() {
 						delURL.IsDeleted, delURL.ShortURL, delURL.UserID)
 					log.Println(res.RowsAffected())
 					if err != nil {
-						return
+						log.Printf("%v", err)
 					}
 				case <-d.sync.done:
 					return

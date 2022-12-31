@@ -11,11 +11,11 @@ import (
 func main() {
 	var cfg config.Config
 	cfg.Init()
-	h, err := app.New(cfg)
+	a, err := app.New(cfg)
 	if err != nil {
 		log.Fatal(err)
 	}
-	if err = h.Run(); err != http.ErrServerClosed && err != nil {
+	if err = a.Run(); err != http.ErrServerClosed && err != nil {
 		log.Fatal(err)
 	}
 }

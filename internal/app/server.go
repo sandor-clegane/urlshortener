@@ -14,8 +14,9 @@ import (
 )
 
 const (
-	rTimeout = 10 * time.Second
-	wTimeout = 10 * time.Second
+	readTimeout    = 10 * time.Second
+	writeTimeout   = 10 * time.Second
+	maxHeaderBytes = 1 << 20
 )
 
 type App struct {
@@ -32,17 +33,17 @@ func New(cfg config.Config) (*App, error) {
 	server := &http.Server{
 		Addr:           cfg.ServerAddress,
 		Handler:        router,
-		ReadTimeout:    rTimeout,
-		WriteTimeout:   wTimeout,
-		MaxHeaderBytes: 1 << 20,
+		ReadTimeout:    readTimeout,
+		WriteTimeout:   writeTimeout,
+		MaxHeaderBytes: maxHeaderBytes,
 	}
-	defer Shutdown(server, stg)
+	defer listenToShutdownSignal(server, stg)
 	return &App{
 		server: server,
 	}, nil
 }
 
-func Shutdown(server *http.Server, storage storages.Storage) {
+func listenToShutdownSignal(server *http.Server, storage storages.Storage) {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	go func() {

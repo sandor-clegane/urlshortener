@@ -19,8 +19,8 @@ type InMemoryStorage struct {
 func (s *InMemoryStorage) LookUp(_ context.Context, str string) (string, error) {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
-	res, ok := s.storage[str]
-	if !ok {
+	res, exists := s.storage[str]
+	if !exists {
 		return "", fmt.Errorf("no %s short URL in database", str)
 	}
 	_, isDeleted := s.deletedItems[str]
@@ -33,8 +33,8 @@ func (s *InMemoryStorage) LookUp(_ context.Context, str string) (string, error) 
 func (s *InMemoryStorage) Insert(_ context.Context, key, value, userID string) error {
 	s.lock.Lock()
 	defer s.lock.Unlock()
-	_, isExists := s.storage[key]
-	if isExists {
+	_, exists := s.storage[key]
+	if exists {
 		return fmt.Errorf("key %s already exists", key)
 	}
 	s.storage[key] = value
@@ -56,10 +56,10 @@ func (s *InMemoryStorage) InsertSome(_ context.Context, expandURLwIDslice []comm
 
 func (s *InMemoryStorage) GetPairsByID(_ context.Context, userID string) ([]common.PairURL, error) {
 	s.lock.RLock()
-	keys, ok := s.userToKeys[userID]
+	keys, exists := s.userToKeys[userID]
 	s.lock.RUnlock()
 
-	if !ok {
+	if !exists {
 		return nil, fmt.Errorf("user with ID %s did not shorten any URL", userID)
 	}
 	result := make([]common.PairURL, 0, len(keys))
