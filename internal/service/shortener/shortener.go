@@ -4,12 +4,14 @@ import (
 	"context"
 	"crypto/md5"
 	"encoding/hex"
+	"errors"
 	"net/url"
 	"strings"
 
 	"github.com/sandor-clegane/urlshortener/internal/common"
 	"github.com/sandor-clegane/urlshortener/internal/common/myerrors"
 	"github.com/sandor-clegane/urlshortener/internal/storages"
+	errors2 "github.com/sandor-clegane/urlshortener/internal/storages/errors"
 )
 
 type urlshortenerServiceImpl struct {
@@ -40,10 +42,13 @@ func (s *urlshortenerServiceImpl) ShortenURL(ctx context.Context, userID, rawURL
 		return "", err
 	}
 	err = s.storage.Insert(ctx, strings.TrimPrefix(shortURL.Path, "/"), rawURL, userID)
+	var uv *errors2.UniqueViolationStorage
 	if err != nil {
-		return "", myerrors.NewUniqueViolation(shortURL.String(), err)
+		if errors.As(err, uv) {
+			return "", myerrors.NewUniqueViolation(shortURL.String(), err)
+		}
+		return "", err
 	}
-
 	return shortURL.String(), nil
 }
 

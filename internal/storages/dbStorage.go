@@ -4,12 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 	"log"
 	"sync"
 
+	"github.com/omeid/pgerror"
 	"github.com/sandor-clegane/urlshortener/internal/common"
 	"github.com/sandor-clegane/urlshortener/internal/common/myerrors"
+	errors2 "github.com/sandor-clegane/urlshortener/internal/storages/errors"
 )
 
 //modifying queries
@@ -82,17 +83,13 @@ func connectAndInit(dbAddress string) (*sql.DB, error) {
 }
 
 func (d *dbStorage) Insert(ctx context.Context, urlID, expandURL, userID string) error {
-	res, err := d.dbConnection.
+	_, err := d.dbConnection.
 		ExecContext(ctx, insertURLQueryWithConstraint, urlID, expandURL, userID, false)
 	if err != nil {
+		if e := pgerror.UniqueViolation(err); err != nil {
+			return errors2.NewUniqueViolationStorage(e)
+		}
 		return err
-	}
-	rows, err := res.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if rows != 1 {
-		return fmt.Errorf("URL %s already exists", expandURL)
 	}
 	return nil
 }

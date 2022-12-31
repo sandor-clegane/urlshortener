@@ -7,6 +7,7 @@ import (
 
 	"github.com/sandor-clegane/urlshortener/internal/common"
 	"github.com/sandor-clegane/urlshortener/internal/common/myerrors"
+	"github.com/sandor-clegane/urlshortener/internal/storages/errors"
 )
 
 type InMemoryStorage struct {
@@ -35,7 +36,7 @@ func (s *InMemoryStorage) Insert(_ context.Context, key, value, userID string) e
 	defer s.lock.Unlock()
 	_, exists := s.storage[key]
 	if exists {
-		return fmt.Errorf("key %s already exists", key)
+		return errors.NewUniqueViolationStorage(nil)
 	}
 	s.storage[key] = value
 	s.userToKeys[userID] = append(s.userToKeys[userID], key)

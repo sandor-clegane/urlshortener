@@ -3,10 +3,10 @@ package storages
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"os"
 
 	"github.com/sandor-clegane/urlshortener/internal/common"
+	"github.com/sandor-clegane/urlshortener/internal/storages/errors"
 )
 
 type FileStorage struct {
@@ -26,7 +26,7 @@ func (fs *FileStorage) Insert(_ context.Context, key, value, userID string) erro
 	defer fs.lock.Unlock()
 	_, isExists := fs.storage[key]
 	if isExists {
-		return fmt.Errorf("key %s already exists", key)
+		return errors.NewUniqueViolationStorage(nil)
 	}
 	err := fs.enc.Encode(&r)
 	if err != nil {
