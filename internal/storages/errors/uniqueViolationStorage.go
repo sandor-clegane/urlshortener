@@ -1,15 +1,11 @@
 package errors
 
-import (
-	"fmt"
-)
-
 type UniqueViolationStorage struct {
 	Err error
 }
 
 func (uv UniqueViolationStorage) Error() string {
-	return fmt.Sprintf("something already exists")
+	return "something already exists"
 }
 
 func (uv UniqueViolationStorage) Unwrap() error {

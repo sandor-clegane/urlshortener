@@ -86,7 +86,7 @@ func (d *dbStorage) Insert(ctx context.Context, urlID, expandURL, userID string)
 	_, err := d.dbConnection.
 		ExecContext(ctx, insertURLQueryWithConstraint, urlID, expandURL, userID, false)
 	if err != nil {
-		if e := pgerror.UniqueViolation(err); err != nil {
+		if e := pgerror.UniqueViolation(err); e != nil {
 			return errors2.NewUniqueViolationStorage(e)
 		}
 		return err
