@@ -16,6 +16,9 @@ type Storage interface {
 	Insert(ctx context.Context, key, value, userID string) error
 	InsertSome(ctx context.Context, expandURLwIDslice []common.PairURL, userID string) error
 	GetPairsByID(ctx context.Context, userID string) ([]common.PairURL, error)
+	DeleteMultipleURLs(ctx context.Context, delSliceURL []common.DeletableURL) error
+	Ping(ctx context.Context) error
+	Stop()
 }
 
 func CreateStorage(cfg config.Config) (Storage, error) {

@@ -2,78 +2,57 @@ package app
 
 import (
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
-	"github.com/caarlos0/env/v6"
-	"github.com/go-chi/chi"
 	"github.com/sandor-clegane/urlshortener/internal/config"
-	"github.com/sandor-clegane/urlshortener/internal/handlers/db"
 	"github.com/sandor-clegane/urlshortener/internal/handlers/url"
+	router2 "github.com/sandor-clegane/urlshortener/internal/router"
 	"github.com/sandor-clegane/urlshortener/internal/storages"
 )
 
+const (
+	readTimeout    = 10 * time.Second
+	writeTimeout   = 10 * time.Second
+	maxHeaderBytes = 1 << 20
+)
+
 type App struct {
-	*chi.Mux
-	Cfg  config.Config
-	dbh  db.DBHandler
-	urlh url.URLHandler
+	server *http.Server
 }
 
-func New() (*App, error) {
-	h := &App{
-		Mux: chi.NewRouter(),
-	}
-
-	err := h.initConfig()
+func New(cfg config.Config) (*App, error) {
+	stg, err := storages.CreateStorage(cfg)
 	if err != nil {
 		return nil, err
 	}
+	router := router2.NewRouter(url.New(stg, cfg))
 
-	err = h.initHandlers()
-	if err != nil {
-		return nil, err
+	server := &http.Server{
+		Addr:           cfg.ServerAddress,
+		Handler:        router,
+		ReadTimeout:    readTimeout,
+		WriteTimeout:   writeTimeout,
+		MaxHeaderBytes: maxHeaderBytes,
 	}
-
-	return h, nil
+	defer listenToShutdownSignal(server, stg)
+	return &App{
+		server: server,
+	}, nil
 }
 
-func (h *App) initConfig() error {
-	var c2 config.Config
-	//parsing env config
-	err := env.Parse(&h.Cfg)
-	if err != nil {
-		return err
-	}
-	//parsing command line config
-	c2.ParseArgsCMD()
-	//applying config
-	h.Cfg.ApplyConfig(c2)
-	return nil
+func listenToShutdownSignal(server *http.Server, storage storages.Storage) {
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sigs
+		server.Close()
+		storage.Stop()
+	}()
 }
 
-//TODO паттерны стоит вынести в константы
-func (h *App) initHandlers() error {
-	stg, err := storages.CreateStorage(h.Cfg)
-	if err != nil {
-		return err
-	}
-	h.dbh, err = db.NewDBHandler(h.Cfg.DatabaseDSN)
-	if err != nil {
-		return err
-	}
-	h.urlh = url.New(stg, h.Cfg)
-
-	h.Use(GzipCompressHandle, GzipDecompressHandle, h.urlh.GetAuthorizationMiddleware())
-
-	h.Post("/", h.urlh.ShortenURL)
-	h.Post("/api/shorten", h.urlh.ShortenURLwJSON)
-	h.Post("/api/shorten/batch", h.urlh.ShortenSomeURL)
-
-	h.Get("/ping", h.dbh.PingConnectionDB)
-	h.Get("/{id}", h.urlh.ExpandURL)
-	h.Get("/api/user/urls", h.urlh.GetAllURL)
-	return nil
-}
-
-func (h *App) Run() error {
-	return http.ListenAndServe(h.Cfg.ServerAddress, h)
+func (app *App) Run() error {
+	return app.server.ListenAndServe()
 }

@@ -3,42 +3,71 @@ package storages
 import (
 	"context"
 	"database/sql"
-	"fmt"
+	"errors"
 	"log"
+	"sync"
 
+	"github.com/omeid/pgerror"
 	"github.com/sandor-clegane/urlshortener/internal/common"
+	"github.com/sandor-clegane/urlshortener/internal/common/myerrors"
+	errors2 "github.com/sandor-clegane/urlshortener/internal/storages/errors"
 )
 
+//modifying queries
 const (
 	initQuery = "CREATE TABLE IF NOT EXISTS urls " +
-		"(id varchar(255) PRIMARY KEY, " +
-		"expand_url varchar(255) UNIQUE, " +
-		"user_id varchar(255))"
+		"(id VARCHAR(255) PRIMARY KEY, " +
+		"expand_url VARCHAR(255) UNIQUE, " +
+		"user_id VARCHAR(255), " +
+		"is_deleted boolean)"
+	insertURLQuery = "INSERT INTO urls (id, expand_url, user_id, is_deleted) " +
+		"VALUES ($1, $2, $3, $4)"
+	deleteURLQuery = "UPDATE urls " +
+		"SET is_deleted=$1 " +
+		"WHERE id=$2 AND user_id=$3"
+)
+
+//non-mod queries
+const (
 	getAllURLQuery = "SELECT id, expand_url " +
 		"FROM urls " +
 		"WHERE user_id=$1"
-	getExpandURLQuery = "SELECT expand_url FROM urls " +
+	getExpandURLQuery = "SELECT expand_url,is_deleted FROM urls " +
 		"WHERE id=$1"
-	insertURLQuery = "INSERT INTO urls (id, expand_url, user_id) " +
-		"VALUES ($1, $2, $3)"
-	insertURLQueryWithConstraint = "INSERT INTO urls (id, expand_url, user_id) " +
-		"VALUES ($1, $2, $3) " +
-		"ON CONFLICT DO NOTHING"
+)
+
+//utility constants
+const (
+	workersCount int = 10
 )
 
 type dbStorage struct {
-	dbConnection *sql.DB
+	dbConnection  *sql.DB
+	deletionBatch chan common.DeletableURL
+	sync          *syncObj
+}
+
+type syncObj struct {
+	done chan struct{}
+	wg   sync.WaitGroup
+	once sync.Once
 }
 
 func NewDBStorage(dbAddress string) (*dbStorage, error) {
-	connection, err := connect(dbAddress)
+	connection, err := connectAndInit(dbAddress)
 	if err != nil {
 		return nil, err
 	}
-	return &dbStorage{dbConnection: connection}, nil
+	storage := &dbStorage{
+		dbConnection:  connection,
+		deletionBatch: make(chan common.DeletableURL),
+		sync:          &syncObj{done: make(chan struct{})},
+	}
+	storage.runWorkerPool()
+	return storage, nil
 }
 
-func connect(dbAddress string) (*sql.DB, error) {
+func connectAndInit(dbAddress string) (*sql.DB, error) {
 	db, err := sql.Open("postgres", dbAddress)
 	if err != nil {
 		return nil, err
@@ -51,17 +80,13 @@ func connect(dbAddress string) (*sql.DB, error) {
 }
 
 func (d *dbStorage) Insert(ctx context.Context, urlID, expandURL, userID string) error {
-	res, err := d.dbConnection.
-		ExecContext(ctx, insertURLQueryWithConstraint, urlID, expandURL, userID)
+	_, err := d.dbConnection.
+		ExecContext(ctx, insertURLQuery, urlID, expandURL, userID, false)
 	if err != nil {
+		if e := pgerror.UniqueViolation(err); e != nil {
+			return errors2.NewUniqueViolationStorage(e)
+		}
 		return err
-	}
-	rows, err := res.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if rows != 1 {
-		return fmt.Errorf("URL %s already exists", expandURL)
 	}
 	return nil
 }
@@ -79,7 +104,7 @@ func (d *dbStorage) InsertSome(ctx context.Context, expandURLwIDslice []common.P
 	defer stmt.Close()
 
 	for _, p := range expandURLwIDslice {
-		if _, err = stmt.Exec(p.ShortURL, p.ExpandURL, userID); err != nil {
+		if _, err = stmt.Exec(p.ShortURL, p.ExpandURL, userID, false); err != nil {
 			if err = tx.Rollback(); err != nil {
 				log.Printf("update drivers: unable to rollback: %v", err)
 				return err
@@ -97,14 +122,18 @@ func (d *dbStorage) InsertSome(ctx context.Context, expandURLwIDslice []common.P
 }
 
 func (d *dbStorage) LookUp(ctx context.Context, urlID string) (string, error) {
-	var expandURL string
+	var u common.DeletableURL
 	err := d.dbConnection.
 		QueryRowContext(ctx, getExpandURLQuery, urlID).
-		Scan(&expandURL)
+		Scan(&u.ExpandURL, &u.IsDeleted)
 	if err != nil {
 		return "", err
 	}
-	return expandURL, nil
+	if u.IsDeleted {
+		return "", myerrors.NewDeleteViolation(u.ExpandURL, nil)
+	}
+
+	return u.ExpandURL, nil
 }
 
 func (d *dbStorage) GetPairsByID(ctx context.Context, userID string) ([]common.PairURL, error) {
@@ -130,4 +159,61 @@ func (d *dbStorage) GetPairsByID(ctx context.Context, userID string) ([]common.P
 		return nil, err
 	}
 	return pairs, nil
+}
+
+func (d *dbStorage) DeleteMultipleURLs(_ context.Context, delSliceURL []common.DeletableURL) error {
+	for _, delURL := range delSliceURL {
+		err := d.push(delURL)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (d *dbStorage) push(dURL common.DeletableURL) error {
+	select {
+	case d.deletionBatch <- dURL:
+		return nil
+	case <-d.sync.done:
+		return errors.New("storage closed")
+	}
+}
+
+func (d *dbStorage) runWorkerPool() {
+	for i := 0; i < workersCount; i++ {
+		d.sync.wg.Add(1)
+		go func() {
+			defer d.sync.wg.Done()
+			ctx := context.Background()
+			for {
+				select {
+				case delURL, ok := <-d.deletionBatch:
+					if !ok {
+						return
+					}
+					res, err := d.dbConnection.ExecContext(ctx, deleteURLQuery,
+						delURL.IsDeleted, delURL.ShortURL, delURL.UserID)
+					log.Println(res.RowsAffected())
+					if err != nil {
+						log.Printf("%v", err)
+					}
+				case <-d.sync.done:
+					return
+				}
+			}
+		}()
+	}
+}
+
+func (d *dbStorage) Stop() {
+	d.sync.once.Do(func() {
+		close(d.sync.done)
+		close(d.deletionBatch)
+	})
+	d.sync.wg.Wait()
+}
+
+func (d *dbStorage) Ping(ctx context.Context) error {
+	return d.dbConnection.PingContext(ctx)
 }

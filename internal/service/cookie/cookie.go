@@ -23,7 +23,11 @@ func New(key string) *cookieServiceImpl {
 	return &cookieServiceImpl{Key: []byte(key)}
 }
 
-func (c *cookieServiceImpl) ExtractValue(cookie *http.Cookie) (string, error) {
+func (c *cookieServiceImpl) GetUserID(r *http.Request) (string, error) {
+	cookie, err := r.Cookie("userID")
+	if err != nil {
+		return "", err
+	}
 	signedValue, err := base64.URLEncoding.DecodeString(cookie.Value)
 	if err != nil {
 		return "", err
@@ -31,7 +35,7 @@ func (c *cookieServiceImpl) ExtractValue(cookie *http.Cookie) (string, error) {
 	return string(signedValue[sha256.Size:]), nil
 }
 
-func (c *cookieServiceImpl) CreateAndSign(w http.ResponseWriter, r *http.Request) error {
+func (c *cookieServiceImpl) createAndSign(w http.ResponseWriter, r *http.Request) error {
 	cookie := http.Cookie{
 		Name:     "userID",
 		Value:    uuid.New().String(),
@@ -53,7 +57,7 @@ func (c *cookieServiceImpl) CreateAndSign(w http.ResponseWriter, r *http.Request
 	return nil
 }
 
-func (c *cookieServiceImpl) CheckSign(r *http.Request, name string) error {
+func (c *cookieServiceImpl) checkSign(r *http.Request, name string) error {
 	//[signature][user_id]
 	//Get and decode value from cookie
 	cookie, err := r.Cookie(name)
@@ -74,7 +78,7 @@ func (c *cookieServiceImpl) CheckSign(r *http.Request, name string) error {
 
 	mac := hmac.New(sha256.New, c.Key)
 	mac.Write([]byte(name))
-	mac.Write([]byte(value))
+	mac.Write(value)
 	expectedSignature := mac.Sum(nil)
 
 	if !hmac.Equal(signature, expectedSignature) {
@@ -86,14 +90,14 @@ func (c *cookieServiceImpl) CheckSign(r *http.Request, name string) error {
 
 func (c *cookieServiceImpl) Authentication(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		err := c.CheckSign(r, "userID")
+		err := c.checkSign(r, "userID")
 		if err == nil {
 			next.ServeHTTP(w, r)
 			return
 		}
 
 		if errors.Is(err, http.ErrNoCookie) || errors.Is(err, ErrInvalidValue) {
-			err = c.CreateAndSign(w, r)
+			err = c.createAndSign(w, r)
 			if err == nil {
 				next.ServeHTTP(w, r)
 				return

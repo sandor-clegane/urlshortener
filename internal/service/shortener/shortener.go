@@ -4,11 +4,14 @@ import (
 	"context"
 	"crypto/md5"
 	"encoding/hex"
+	"errors"
 	"net/url"
+	"strings"
 
 	"github.com/sandor-clegane/urlshortener/internal/common"
 	"github.com/sandor-clegane/urlshortener/internal/common/myerrors"
 	"github.com/sandor-clegane/urlshortener/internal/storages"
+	errors2 "github.com/sandor-clegane/urlshortener/internal/storages/errors"
 )
 
 type urlshortenerServiceImpl struct {
@@ -23,6 +26,7 @@ func New(stg storages.Storage, baseURL string) URLshortenerService {
 	}
 }
 
+//TODO разделить сокращение и добавление префикса
 func (s *urlshortenerServiceImpl) shorten(url *url.URL) (*url.URL, error) {
 	hash := md5.Sum([]byte(url.String()))
 	return common.Join(s.baseURL, hex.EncodeToString(hash[:]))
@@ -37,16 +41,19 @@ func (s *urlshortenerServiceImpl) ShortenURL(ctx context.Context, userID, rawURL
 	if err != nil {
 		return "", err
 	}
-	err = s.storage.Insert(ctx, shortURL.Path, rawURL, userID)
+	err = s.storage.Insert(ctx, strings.TrimPrefix(shortURL.Path, "/"), rawURL, userID)
+	var uv *errors2.UniqueViolationStorage
 	if err != nil {
-		return "", myerrors.NewUniqueViolation(shortURL.String(), err)
+		if errors.As(err, &uv) {
+			return "", myerrors.NewUniqueViolation(shortURL.String(), err)
+		}
+		return "", err
 	}
-
 	return shortURL.String(), nil
 }
 
 func (s *urlshortenerServiceImpl) ExpandURL(ctx context.Context, shortURL string) (string, error) {
-	res, err := s.storage.LookUp(ctx, shortURL)
+	res, err := s.storage.LookUp(ctx, strings.TrimPrefix(shortURL, "/"))
 	if err != nil {
 		return "", err
 	}
@@ -85,7 +92,7 @@ func (s *urlshortenerServiceImpl) ShortenSomeURL(ctx context.Context,
 
 		pairURL := common.PairURL{
 			ExpandURL: v.OriginalURL,
-			ShortURL:  shortURL.Path,
+			ShortURL:  strings.TrimPrefix(shortURL.Path, "/"),
 		}
 
 		URLwCIDout := common.PairURLwithCIDout{
@@ -100,4 +107,21 @@ func (s *urlshortenerServiceImpl) ShortenSomeURL(ctx context.Context,
 	s.storage.InsertSome(ctx, tempURLpairSlice, userID)
 
 	return ResponseURLwIDslice, nil
+}
+
+func (s *urlshortenerServiceImpl) DeleteMultipleURLs(ctx context.Context, userID string, sliceShortID []string) error {
+	var delSLiceURL = make([]common.DeletableURL, 0, len(sliceShortID))
+	for _, u := range sliceShortID {
+		ud := common.DeletableURL{
+			ShortURL:  u,
+			UserID:    userID,
+			IsDeleted: true,
+		}
+		delSLiceURL = append(delSLiceURL, ud)
+	}
+	return s.storage.DeleteMultipleURLs(ctx, delSLiceURL)
+}
+
+func (s *urlshortenerServiceImpl) Ping(ctx context.Context) error {
+	return s.storage.Ping(ctx)
 }

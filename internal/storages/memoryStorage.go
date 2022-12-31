@@ -3,42 +3,43 @@ package storages
 import (
 	"context"
 	"fmt"
-	"strings"
 	"sync"
 
 	"github.com/sandor-clegane/urlshortener/internal/common"
+	"github.com/sandor-clegane/urlshortener/internal/common/myerrors"
+	"github.com/sandor-clegane/urlshortener/internal/storages/errors"
 )
 
 type InMemoryStorage struct {
-	storage    map[string]string
-	userToKeys map[string][]string
-	lock       sync.RWMutex
+	deletedItems map[string]struct{}
+	storage      map[string]string
+	userToKeys   map[string][]string
+	lock         sync.RWMutex
 }
 
 func (s *InMemoryStorage) LookUp(_ context.Context, str string) (string, error) {
-	trimmedStr := strings.TrimPrefix(str, "/")
-
 	s.lock.RLock()
 	defer s.lock.RUnlock()
-	res, ok := s.storage[trimmedStr]
-
-	if !ok {
+	res, exists := s.storage[str]
+	if !exists {
 		return "", fmt.Errorf("no %s short URL in database", str)
+	}
+	_, isDeleted := s.deletedItems[str]
+	if isDeleted {
+		return "", myerrors.NewDeleteViolation(res, nil)
 	}
 	return res, nil
 }
 
 func (s *InMemoryStorage) Insert(_ context.Context, key, value, userID string) error {
-	trimmedKey := strings.TrimPrefix(key, "/")
-
 	s.lock.Lock()
 	defer s.lock.Unlock()
-	_, isExists := s.storage[trimmedKey]
-	if isExists {
-		return fmt.Errorf("key %s already exists", key)
+	_, exists := s.storage[key]
+	if exists {
+		return errors.NewUniqueViolationStorage(nil)
 	}
-	s.storage[trimmedKey] = value
-	s.userToKeys[userID] = append(s.userToKeys[userID], trimmedKey)
+	s.storage[key] = value
+	s.userToKeys[userID] = append(s.userToKeys[userID], key)
 
 	return nil
 }
@@ -47,9 +48,8 @@ func (s *InMemoryStorage) InsertSome(_ context.Context, expandURLwIDslice []comm
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	for _, p := range expandURLwIDslice {
-		trimmedKey := strings.TrimPrefix(p.ShortURL, "/")
-		s.storage[trimmedKey] = p.ExpandURL
-		s.userToKeys[userID] = append(s.userToKeys[userID], trimmedKey)
+		s.storage[p.ShortURL] = p.ExpandURL
+		s.userToKeys[userID] = append(s.userToKeys[userID], p.ShortURL)
 	}
 
 	return nil
@@ -57,10 +57,10 @@ func (s *InMemoryStorage) InsertSome(_ context.Context, expandURLwIDslice []comm
 
 func (s *InMemoryStorage) GetPairsByID(_ context.Context, userID string) ([]common.PairURL, error) {
 	s.lock.RLock()
-	keys, ok := s.userToKeys[userID]
+	keys, exists := s.userToKeys[userID]
 	s.lock.RUnlock()
 
-	if !ok {
+	if !exists {
 		return nil, fmt.Errorf("user with ID %s did not shorten any URL", userID)
 	}
 	result := make([]common.PairURL, 0, len(keys))
@@ -77,9 +77,25 @@ func (s *InMemoryStorage) GetPairsByID(_ context.Context, userID string) ([]comm
 	return result, nil
 }
 
+func (s *InMemoryStorage) DeleteMultipleURLs(_ context.Context, delURLs []common.DeletableURL) error {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	for _, du := range delURLs {
+		s.deletedItems[du.ShortURL] = struct{}{}
+	}
+	return nil
+}
+
+func (s *InMemoryStorage) Ping(_ context.Context) error {
+	return nil
+}
+
+func (s *InMemoryStorage) Stop() {}
+
 func NewInMemoryStorage() (*InMemoryStorage, error) {
 	return &InMemoryStorage{
-		storage:    make(map[string]string),
-		userToKeys: make(map[string][]string),
+		storage:      make(map[string]string),
+		userToKeys:   make(map[string][]string),
+		deletedItems: make(map[string]struct{}),
 	}, nil
 }

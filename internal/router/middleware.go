@@ -1,4 +1,4 @@
-package app
+package router
 
 import (
 	"compress/gzip"
@@ -43,12 +43,12 @@ func GzipCompressHandle(next http.Handler) http.Handler {
 	})
 }
 
-type gzipReaderCloser struct {
+type gzipReadCloser struct {
 	io.ReadCloser
 	Reader io.Reader
 }
 
-func (r gzipReaderCloser) Read(b []byte) (int, error) {
+func (r gzipReadCloser) Read(b []byte) (int, error) {
 	return r.Reader.Read(b)
 }
 
@@ -72,7 +72,7 @@ func GzipDecompressHandle(next http.Handler) http.Handler {
 		}
 		defer gz.Close()
 
-		r.Body = gzipReaderCloser{Reader: gz, ReadCloser: r.Body}
+		r.Body = gzipReadCloser{Reader: gz, ReadCloser: r.Body}
 		//передаём обработчику страницы переменную типа gzipWriter для вывода данных
 		next.ServeHTTP(w, r)
 	})

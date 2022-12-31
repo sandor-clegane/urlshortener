@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/go-chi/chi"
 	_ "github.com/lib/pq"
 	"github.com/sandor-clegane/urlshortener/internal/common"
 	"github.com/sandor-clegane/urlshortener/internal/common/myerrors"
@@ -34,9 +35,19 @@ func (h *URLhandlerImpl) GetAuthorizationMiddleware() func(next http.Handler) ht
 //ExpandURL Эндпоинт GET /{id} принимает в качестве URL-параметра идентификатор сокращённого URL и
 //возвращает ответ с кодом 307 и оригинальным URL в HTTP-заголовке Location.
 func (h *URLhandlerImpl) ExpandURL(w http.ResponseWriter, r *http.Request) {
-	expandURL, err := h.us.ExpandURL(r.Context(), r.URL.Path)
+	shortURL := chi.URLParam(r, "id")
+	if shortURL == "" {
+		http.Error(w, "No id param in URL", http.StatusBadRequest)
+		return
+	}
+	expandURL, err := h.us.ExpandURL(r.Context(), shortURL)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		var deletedErr *myerrors.DeleteViolation
+		if errors.As(err, &deletedErr) {
+			w.WriteHeader(http.StatusGone)
+		} else {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		}
 		return
 	}
 	w.Header().Add("Location", expandURL)
@@ -46,22 +57,17 @@ func (h *URLhandlerImpl) ExpandURL(w http.ResponseWriter, r *http.Request) {
 //ShortenURL эндпоинт POST / принимает в теле запроса строку URL для сокращения
 //и возвращает ответ с кодом 201 и сокращённым URL в виде текстовой строки в теле.
 func (h *URLhandlerImpl) ShortenURL(w http.ResponseWriter, r *http.Request) {
-	authCookie, err := r.Cookie("userID")
+	userID, err := h.cs.GetUserID(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	userID, err := h.cs.ExtractValue(authCookie)
+	rawURL, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	rawurl, err := io.ReadAll(r.Body)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	short, err := h.us.ShortenURL(r.Context(), userID, string(rawurl))
+	short, err := h.us.ShortenURL(r.Context(), userID, string(rawURL))
 	if err == nil {
 		w.WriteHeader(http.StatusCreated)
 		w.Write([]byte(short))
@@ -80,12 +86,7 @@ func (h *URLhandlerImpl) ShortenURL(w http.ResponseWriter, r *http.Request) {
 //принимающий в теле запроса JSON-объект {"url":"<some_url>"}  и
 //возвращающий в ответ объект {"result":"<shorten_url>"}.
 func (h *URLhandlerImpl) ShortenURLwJSON(w http.ResponseWriter, r *http.Request) {
-	authCookie, err := r.Cookie("userID")
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	userID, err := h.cs.ExtractValue(authCookie)
+	userID, err := h.cs.GetUserID(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -108,8 +109,8 @@ func (h *URLhandlerImpl) ShortenURLwJSON(w http.ResponseWriter, r *http.Request)
 	if errors.As(err, &violationError) {
 		w.Header().Add("Content-Type", "application/json")
 		w.WriteHeader(http.StatusConflict)
-		outData := common.OutMessage{ShortURL: violationError.ExistedShortURL}
-		json.NewEncoder(w).Encode(outData)
+		json.NewEncoder(w).Encode(
+			common.OutMessage{ShortURL: violationError.ExistedShortURL})
 	} else {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	}
@@ -126,12 +127,7 @@ func (h *URLhandlerImpl) ShortenURLwJSON(w http.ResponseWriter, r *http.Request)
 //]
 //При отсутствии сокращённых пользователем URL хендлер должен отдавать HTTP-статус 204 No Content.
 func (h *URLhandlerImpl) GetAllURL(w http.ResponseWriter, r *http.Request) {
-	authCookie, err := r.Cookie("userID")
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	userID, err := h.cs.ExtractValue(authCookie)
+	userID, err := h.cs.GetUserID(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -150,12 +146,7 @@ func (h *URLhandlerImpl) GetAllURL(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *URLhandlerImpl) ShortenSomeURL(w http.ResponseWriter, r *http.Request) {
-	authCookie, err := r.Cookie("userID")
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	userID, err := h.cs.ExtractValue(authCookie)
+	userID, err := h.cs.GetUserID(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -180,4 +171,40 @@ func (h *URLhandlerImpl) ShortenSomeURL(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+}
+
+//DeleteMultipleURLs асинхронный хендлер DELETE /api/user/urls, который
+//принимает список идентификаторов сокращённых URL для удаления в формате:
+// [ "a", "b", "c", "d", ...]
+//В случае успешного приёма запроса хендлер должен возвращать HTTP-статус 202 Accepted.
+func (h *URLhandlerImpl) DeleteMultipleURLs(w http.ResponseWriter, r *http.Request) {
+	userID, err := h.cs.GetUserID(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	var urlIDList []string
+	err = json.NewDecoder(r.Body).Decode(&urlIDList)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	err = h.us.DeleteMultipleURLs(r.Context(), userID, urlIDList)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	w.WriteHeader(http.StatusAccepted)
+}
+
+// PingConnectionDB хендлер GET /ping, который при запросе проверяет соединение с базой данных.
+//При успешной проверке хендлер должен вернуть HTTP-статус 200 OK,
+//при неуспешной — 500 Internal Server Error
+func (h *URLhandlerImpl) PingConnectionDB(w http.ResponseWriter, r *http.Request) {
+	err := h.us.Ping(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
 }
