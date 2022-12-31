@@ -44,7 +44,7 @@ func (s *urlshortenerServiceImpl) ShortenURL(ctx context.Context, userID, rawURL
 	err = s.storage.Insert(ctx, strings.TrimPrefix(shortURL.Path, "/"), rawURL, userID)
 	var uv *errors2.UniqueViolationStorage
 	if err != nil {
-		if errors.As(err, uv) {
+		if errors.As(err, &uv) {
 			return "", myerrors.NewUniqueViolation(shortURL.String(), err)
 		}
 		return "", err
