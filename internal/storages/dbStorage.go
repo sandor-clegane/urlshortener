@@ -22,9 +22,6 @@ const (
 		"is_deleted boolean)"
 	insertURLQuery = "INSERT INTO urls (id, expand_url, user_id, is_deleted) " +
 		"VALUES ($1, $2, $3, $4)"
-	insertURLQueryWithConstraint = "INSERT INTO urls (id, expand_url, user_id, is_deleted) " +
-		"VALUES ($1, $2, $3, $4) " +
-		"ON CONFLICT DO NOTHING"
 	deleteURLQuery = "UPDATE urls " +
 		"SET is_deleted=$1 " +
 		"WHERE id=$2 AND user_id=$3"
@@ -84,7 +81,7 @@ func connectAndInit(dbAddress string) (*sql.DB, error) {
 
 func (d *dbStorage) Insert(ctx context.Context, urlID, expandURL, userID string) error {
 	_, err := d.dbConnection.
-		ExecContext(ctx, insertURLQueryWithConstraint, urlID, expandURL, userID, false)
+		ExecContext(ctx, insertURLQuery, urlID, expandURL, userID, false)
 	if err != nil {
 		if e := pgerror.UniqueViolation(err); e != nil {
 			return errors2.NewUniqueViolationStorage(e)

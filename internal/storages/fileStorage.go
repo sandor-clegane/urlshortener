@@ -24,8 +24,8 @@ func (fs *FileStorage) Insert(_ context.Context, key, value, userID string) erro
 
 	fs.lock.Lock()
 	defer fs.lock.Unlock()
-	_, isExists := fs.storage[key]
-	if isExists {
+	_, exists := fs.storage[key]
+	if exists {
 		return errors.NewUniqueViolationStorage(nil)
 	}
 	err := fs.enc.Encode(&r)
